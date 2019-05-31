@@ -32,6 +32,12 @@ class Gap(object):
         self._build_cmd_teach()
         return self._cmd_teach
 
+    @property
+    def cmd_quip(self):
+        "Update command string when called"
+        self._build_cmd_quip()
+        return self._cmd_quip
+
     # output
     @property
     def job_dir(self):
@@ -103,6 +109,14 @@ class Gap(object):
 
         self._gaps = gaps
 
+    @property
+    def params_quip(self):
+        return self._params_quip
+
+    @params_quip.setter
+    def params_quip(self, params):
+        self._params_quip = params
+
     # checks
     def _check_key(self, items, key):
         "Check if a (required) key is in a dictionary, e.g. ``name`` in ``self.params_teach_sparse``"
@@ -169,6 +183,12 @@ class Gap(object):
             for gap in self.gaps:
                 o_file.write(self._dict_to_string(gap))
 
+    def write_quip_parameters(self):
+        "Write quip-parameters to file."
+        with open(os.path.join(self.job_dir, 'quip.params'), 'a') as o_file:
+            o_file.write('# params_quip\n')
+            o_file.write(self._dict_to_string(self.params_quip))
+
     # command handling
     def _build_cmd_teach(self):
         "Builds the teach_sparse command-line string"
@@ -202,6 +222,13 @@ class Gap(object):
         pot_str += ' '
         pot_str += self._build_assign_str(items_copy)
         return pot_str
+
+    def _build_cmd_quip(self):
+        "Builds the quip command-line string"
+        cmd_str = '! quip '
+        cmd_str += self._build_assign_str(self._params_quip)
+        cmd_str += ' | grep AT | sed \'s/AT//\''
+        self._cmd_quip = cmd_str
 
     # command execution
     def run_teach_sparse(self, try_run=False):
@@ -244,6 +271,40 @@ class Gap(object):
         #             o_file.write(out)
         #             o_file.flush()
 
+    def run_quip(self, set_id, try_run=False):
+        """
+        Executes the quip command based on the defined settings in
+            self.params_quip,
+            self.job_dir,
+
+        The <set_id>-set (self.atoms_<set_id>) will automatically be written to the file
+        specified in self.params_quip ('atoms_filename').
+        The file containing the predictions made when running the command will be written
+        to the file specified in self.params_quip ('atoms_filename') with the prefix ``quip_``.
+
+        Standard output and output for error will be written into separated files.
+
+        Parameters:
+        -----------
+        try_run : boolean
+            Run in test-mode.
+        set_id : string
+            Defines the geometry set that will be used for predicting outcomes.
+            Must be one of the string stored in _set_ids.
+        """
+        self._make_job_dir()
+        self.write_atoms(os.path.join(self.job_dir, self.params_quip['atoms_filename']), set_id)
+        self.write_quip_parameters()
+
+        outfile_quip = 'quip_' + self.params_quip['atoms_filename']
+        errfile_quip = outfile_quip[:-4]+'.err'
+
+        cwd = os.getcwd()
+        os.chdir(self.job_dir)
+        print(self.cmd_quip)
+        if not try_run:
+            os.system('{command} 1>{stdout} 2>{stderr}'.format(command=self.cmd_quip, stdout=outfile_quip, stderr=errfile_quip))
+        os.chdir(cwd)
 
     def _make_job_dir(self):
         if not os.path.exists(self.job_dir):
