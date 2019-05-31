@@ -3,6 +3,7 @@ import copy
 import subprocess
 import itertools as ito
 import numpy as np
+import random
 
 import ase.io
 
@@ -400,3 +401,125 @@ class Gap(object):
     def _dict_cartesian_product(self, items):
         "Returns the cartesian product of the values' ranges in terms of individual dictionaries."
         return [dict(zip(items.keys(), values)) for values in ito.product(*items.values())]
+
+    def crossvalidation(self, num, seed, teach_sparse_ranges, gaps_ranges, del_gp_file=True, try_run=False, omnipresent=[]):
+        """
+        Perform a cross-validation on the trainin-set data.
+
+        Parameters:
+        -----------
+        num: int
+            Number of sub-sets to be generated.
+        seed : int
+            Seed from the random number generator.
+        teach_sparse_ranges : dict
+            Stores the keys and the range of values to be sampled.
+        gaps_ranges : list (or dict)
+            List of dictionaries (or a single dictionary in case
+            only a single gap-potential is used).
+            Each dictionary stores the keys and the range of values to be sampled.
+        del_gp_file : boolean
+            Allows to remove the (sometimes rather large) ``gp_file``.
+        try_run : boolean
+            Run in test-mode.
+        omnipresent : list
+            Stores atoms-objects to be present in each
+            of the sub-sets.
+        """
+        # storage to reset later again to these values
+        _job_dir = self.job_dir
+        atoms_train = copy.deepcopy(self.atoms_train)
+        # self.atoms_validate might not be initiated
+        if hasattr(self, 'atoms_validate'):
+            atoms_validate = copy.deepcopy(self.atoms_validate)
+            exists_atoms_validate = True
+        else:
+            exists_atoms_validate = False
+
+        sub_sets = self._get_subsets(num, seed, omnipresent)
+        for idx in range(num):
+            # assing validation- and training-sets
+            sub_sets_copy = copy.deepcopy(sub_sets)
+            self.atoms_validate = sub_sets_copy.pop(idx)  # one sub-set for validatoin
+            self.atoms_train = list(ito.chain(*sub_sets_copy))  # the remaining sub-sets for training
+
+            # each sub-validation of the crossvalidation gets its one directory
+            self.job_dir = os.path.join(_job_dir, str(idx)+'_crossval')
+
+            # perform the grid search for hyperparameters
+            self.run_sample_grid(teach_sparse_ranges, gaps_ranges, del_gp_file, try_run)
+
+        self.job_dir = _job_dir
+        self.atoms_train = atoms_train
+        if exists_atoms_validate:
+            self.atoms_validate = atoms_validate
+        else:
+            self.atoms_validate = None
+
+
+    def _get_subsets(self, num, seed, omnipresent=[]):
+        """
+        Separates the trainin-set into sub-sets.
+
+        Parameters:
+        -----------
+        num: int
+            Number of sub-sets to be generated.
+        seed : int
+            Seed from the random number generator.
+        omnipresent : list
+            Stores atoms-objects to be present in each
+            of the sub-sets.
+
+        Returns:
+        --------
+        set_subs : list
+            List of lists with each of the inner ones
+            representing a sub-set of the training-set.
+        """
+        atoms = copy.deepcopy(self.atoms_train)  # avoid changes in self.atoms_train
+        set_subs = []
+        size = len(self.atoms_train)//num  # the rest will later be assigned equally to the num sets
+        # populate ``num`` sub-sets, by picking out entries from ``atoms``,
+        # i.e. len(atoms) gets reduced in each iteration
+        for idx in range(num):
+            set_sub, atoms = self._separate_random_uniform(atoms, size, seed)
+
+            if omnipresent:
+                set_sub = omnipresent + set_sub
+
+            set_subs.append(set_sub)
+        # assign the remainig entries in ``atoms`` to the sub-sets
+        for idx in range(len(atoms)):
+            set_subs[idx].append(atoms[idx])
+        return set_subs
+
+    def _separate_random_uniform(self, init_set, subset_size, seed):
+        """
+        Separates a list into two by selecting entries in a random-uniform manner.
+
+        Parameters:
+        -----------
+        init_set : list
+            Original, full list to be split.
+        subset_size : int
+            Number of entries to be removed from
+            the original list (``init_set``)
+            and stored in a separate list (``subset``).
+        seed : int
+            Seed from the random number generator.
+
+        Returns:
+        --------
+        subset : list
+            List of length ``subset_size`` storing the entries
+            extracted from ``init_set``.
+        init_set_red : list
+            List of length len(init_set)-``subset_size`` containing
+            the remaining entries.
+        """
+        random.seed(a=seed)
+        indices_vs = random.sample(range(len(init_set)), subset_size)
+        subset = [entry for idx, entry in enumerate(init_set) if idx in indices_vs]
+        init_set_red = [entry for idx, entry in enumerate(init_set) if idx not in indices_vs]
+        return subset, init_set_red
