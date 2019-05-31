@@ -119,7 +119,7 @@ class Gap(object):
     # atoms handling
     def read_atoms(self, path, set_id):
         """
-        Read geometries from file and store as attribute of the instance (self._atoms_<set_id>).
+        Read geometries from file and store as attribute of the instance (self.atoms_<set_id>).
 
         Parameters:
         -----------
@@ -135,6 +135,8 @@ class Gap(object):
 
     def write_atoms(self, destination, set_id):
         """
+        Write self.atoms_<set_id> in xyz-file.
+
         Parameters:
         -----------
         destination : string
@@ -195,7 +197,7 @@ class Gap(object):
 
     def _build_potential_str(self, items):
         "Build the command-line string for a single desciptor within the gap-related part of teach_sparse"
-        items_copy = copy.deepcopy(items)  # avoid changes in self.gaps sub-dirs
+        items_copy = copy.deepcopy(items)  # avoid changes in self.gaps
         pot_str = items_copy.pop('name')
         pot_str += ' '
         pot_str += self._build_assign_str(items_copy)
