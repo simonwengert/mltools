@@ -170,8 +170,11 @@ class Gap(object):
     # command handling
     def _build_cmd_teach(self):
         "Builds the teach_sparse command-line string"
+        items_copy = copy.deepcopy(self._params_teach_sparse)  # avoid changes in self.params_teach_sparse
         cmd_str = '! teach_sparse '
-        cmd_str += self._build_assign_str(self._params_teach_sparse)
+        cmd_str += 'default_sigma={' + ' '.join([str(df) for df in items_copy.pop('default_sigma')]) + '}'
+        cmd_str += ' '
+        cmd_str += self._build_assign_str(items_copy)
         cmd_str += ' '
         cmd_str += self._build_gap_str()
         self._cmd_teach = cmd_str
