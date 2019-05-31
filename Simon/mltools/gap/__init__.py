@@ -1,6 +1,7 @@
 import os
 import copy
 import subprocess
+import numpy as np
 
 import ase.io
 
