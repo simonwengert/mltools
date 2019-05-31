@@ -1,6 +1,7 @@
 import os
 import copy
 import subprocess
+import itertools as ito
 import numpy as np
 
 import ase.io
@@ -343,3 +344,59 @@ class Gap(object):
     def _make_job_dir(self):
         if not os.path.exists(self.job_dir):
             os.makedirs(self.job_dir)
+
+    def run_sample_grid(self, teach_sparse_ranges, gaps_ranges, del_gp_file=True, try_run=False):
+        """
+        Learn and validate gap-potentials on a grid of parameters.
+
+        Parameters:
+        -----------
+        teach_sparse_ranges : dict
+            Stores the keys and the range of values to be sampled.
+        gaps_ranges : list (or dict)
+            List of dictionaries (or a single dictionary in case
+            only a single gap-potential is used).
+            Each dictionary stores the keys and the range of values to be sampled.
+        del_gp_file : boolean
+            Allows to remove the (sometimes rather large) ``gp_file``.
+        try_run : boolean
+            Run in test-mode.
+        """
+
+        if not isinstance(gaps_ranges, list):
+            gaps_ranges = [gaps_ranges]
+        if not len(gaps_ranges) == len(self.gaps):
+            raise ValueError('``gaps_ranges`` must have same length as ``self.gaps``')
+
+        _job_dir = self.job_dir  # used to reset it later again to that value
+
+        teach_sparse_products = self._dict_cartesian_product(teach_sparse_ranges)
+        gaps_products = [self._dict_cartesian_product(gap_ranges) for gap_ranges in gaps_ranges]
+        grid_dimensions = [teach_sparse_products] + gaps_products
+        for params_tuple in ito.product(*grid_dimensions):
+            _job_dir_sub = ''
+
+            for key, value in params_tuple[0].items():
+                self.params_teach_sparse[key] = value
+                if key == 'default_sigma':
+                    _job_dir_sub = '_'.join([_job_dir_sub, '_', key, '_'.join([format(ds, '.2E') for ds in value])])
+                else:
+                    _job_dir_sub = '_'.join([_job_dir_sub, '_', key, str(value)])
+
+            for gap_idx, gap_ranges in enumerate(params_tuple[1:]):
+                for key, value in gap_ranges.items():
+                    self.gaps[gap_idx][key] = value
+                    _job_dir_sub = '_'.join([_job_dir_sub, '_', key, str(value)])
+
+            self.job_dir = os.path.join(_job_dir, _job_dir_sub[3:])
+            self.run_teach_sparse(try_run)
+            self.run_quip('validate', try_run)
+            if del_gp_file:
+                [os.remove(os.path.join(self.job_dir, n_file)) for n_file in os.listdir(self.job_dir)
+                 if self.params_teach_sparse['gp_file'] in n_file]
+
+        self.job_dir = _job_dir
+
+    def _dict_cartesian_product(self, items):
+        "Returns the cartesian product of the values' ranges in terms of individual dictionaries."
+        return [dict(zip(items.keys(), values)) for values in ito.product(*items.values())]
