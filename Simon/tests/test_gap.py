@@ -101,6 +101,26 @@ class TestParser(unittest.TestCase):
         for atoms in gap.atoms_train:
             np.testing.assert_array_equal(atoms.get_cell(), ref_cell)
 
+    def test__calc_energy_sigmas_linear(self):
+        ref_values  = [1, 5, 2, 3, 4]
+        sigma_range = [0, 1]
+        ref_sigma_energies = [0, 1, 0.25, 0.50, 0.75]
+
+        gap = mltools.gap.Gap()
+        np.testing.assert_array_equal(gap._calc_energy_sigmas_linear(ref_values, sigma_range), ref_sigma_energies)
+
+    def test_assign_energy_sigma_linear(self):
+        ref_values  = [1, 2, 3]
+        sigma_range = [0, 1]
+        ref_sigma_energies = [0, 0.50, 1]
+        p_xyz_file = os.path.join(self.cwd, 'tests', 'data', 'xyz', '0_test.xyz')
+
+        gap = mltools.gap.Gap()
+        gap.read_atoms(p_xyz_file, 'train')
+        gap.assign_energy_sigma_linear(ref_values, sigma_range)
+        for atoms, ref_sigma_energy in zip(gap.atoms_train, ref_sigma_energies):
+            self.assertEqual(atoms.info['energy_sigma'], ref_sigma_energy)
+
     def test_write_teach_sparse_parameters(self):
         ref_file = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'teach.params')
         gap = mltools.gap.Gap()
