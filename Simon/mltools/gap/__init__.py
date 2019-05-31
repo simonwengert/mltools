@@ -151,6 +151,22 @@ class Gap(object):
 
         ase.io.write(destination, getattr(self, 'atoms_'+set_id))
 
+    # dumping parameters
+    def _dict_to_string(self, items):
+        keys = sorted(items)
+        return 'dict(' + ',\n     '.join('{0}={1}'.format(key, items[key]) for key in keys) + ')\n'
+
+    def write_teach_sparse_parameters(self):
+        "Write teach_sparse-parameters and gap-parameters to file."
+        with open(os.path.join(self.job_dir, 'teach.params'), 'w') as o_file:
+            o_file.write('# params_teach_sparse\n')
+            o_file.write(self._dict_to_string(self.params_teach_sparse))
+
+            o_file.write('\n')
+            o_file.write('# gaps\n')
+            for gap in self.gaps:
+                o_file.write(self._dict_to_string(gap))
+
     # command handling
     def _build_cmd_teach(self):
         "Builds the teach_sparse command-line string"
