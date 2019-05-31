@@ -172,6 +172,34 @@ class Gap(object):
         for atoms in getattr(self, 'atoms_'+set_id):
             atoms.set_cell(np.diag([length]*3))
 
+    def _calc_energy_sigmas_linear(self, ref_values, sigma_range):
+        "Map ``ref_values`` to a range within ``sigma_range`` in a linear fashion."
+        ref_values = np.asarray(ref_values)
+        ref_min, ref_max = np.min(ref_values), np.max(ref_values)
+        slope = (sigma_range[1]-sigma_range[0]) / float(ref_max-ref_min)
+        return sigma_range[0] + slope*(ref_values-ref_min)
+
+    def assign_energy_sigma_linear(self, ref_values, sigma_range):
+        """
+        Add the property ``energy_sigma`` to a set of atoms.
+
+        Parameters:
+        -----------
+        ref_values : ndarray or list
+            Values to be mapped to energy_sigma values and
+            assigned to the atoms in self.atoms_train.
+            thus, needs to have same length as self.atoms_train.
+        sigma_range: ndarray or list
+            Stores the minimum and maximum value of the sesired
+            energy_sigma's.
+        """
+        if not len(self.atoms_train) == len(ref_values):
+            raise ValueError('Dimension mismatch: requested atoms set and ``ref_values`` must have same dimension')
+
+        energy_sigmas = self._calc_energy_sigmas_linear(ref_values, sigma_range)
+        for atoms, energy_sigma in zip(self.atoms_train, energy_sigmas):
+                atoms.info['energy_sigma'] = energy_sigma
+
     # dumping parameters
     def _dict_to_string(self, items):
         keys = sorted(items)
