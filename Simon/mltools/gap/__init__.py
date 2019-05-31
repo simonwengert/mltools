@@ -20,7 +20,12 @@ class Gap(object):
     def __init__(self, **kwargs):
         self._set_ids = ['train', 'validate', 'test']
 
-    # cmd_teach cannot be changed by user directly
+        # defaults
+        self.job_dir = kwargs.pop('job_dir', os.path.abspath(os.getcwd()))
+        self.outfile_teach = kwargs.pop('outfile_teach', 'teach.out')
+
+
+    # cmd_* cannot be changed by user directly
     @property
     def cmd_teach(self):
         "Update command string when called"
