@@ -216,6 +216,11 @@ class Gap(object):
         specified in self.params_teach_sparse ('at_file').
 
         Standard output and output for error will be written into separated files.
+
+        Parameters:
+        -----------
+        try_run : boolean
+            Run in test-mode.
         """
         self._make_job_dir()
         self.write_atoms(os.path.join(self.job_dir, self.params_teach_sparse['at_file']), 'train')
