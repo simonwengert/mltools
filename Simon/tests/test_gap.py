@@ -129,6 +129,12 @@ class TestParser(unittest.TestCase):
         gap.write_teach_sparse_parameters()
         self.assertTrue(filecmp.cmp('teach.params', ref_file))
 
+    def test_write_quip_parameters(self):
+        ref_file = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'quip.params')
+        gap = mltools.gap.Gap()
+        gap.params_quip = {'key_0' : 'val_0', 'key_1' : 'val_1'}
+        gap.write_quip_parameters()
+        self.assertTrue(filecmp.cmp('quip.params', ref_file))
 
     def test__build_cmd_teach(self):
         ref_cmd_teach = '! teach_sparse default_sigma={0 0.5 1 2} key_0=val_0 gap={gap_0 key_1=val_1}'
@@ -138,6 +144,13 @@ class TestParser(unittest.TestCase):
         gap.gaps = {'name' : 'gap_0',
                     'key_1' : 'val_1'}
         self.assertEqual(gap.cmd_teach, ref_cmd_teach)
+
+    def test__build_cmd_quip(self):
+        ref_cmd_quip = '! quip key_1=val_1 key_0=val_0 | grep AT | sed \'s/AT//\''
+        gap = mltools.gap.Gap()
+        gap.params_quip = {'key_0' : 'val_0',
+                           'key_1' : 'val_1'}
+        self.assertEqual(gap.cmd_quip, ref_cmd_quip)
 
     def tearDown(self):
         os.chdir(self.cwd)
