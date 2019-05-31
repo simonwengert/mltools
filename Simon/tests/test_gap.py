@@ -51,7 +51,7 @@ class TestParser(unittest.TestCase):
         self.assertEqual(gap._build_gap_str(), ref_str)
 
     def test__check_set_id_pass(self):
-        set_ids = ['train', 'validate', 'holdout']
+        set_ids = ['train', 'validate', 'test']
         gap = mltools.gap.Gap()
         for set_id in set_ids:
             gap._check_set_id(set_id)
@@ -63,7 +63,7 @@ class TestParser(unittest.TestCase):
             gap._check_set_id(set_id)
 
     def test_read_atoms_pass(self):
-        set_ids = ['train', 'validate', 'holdout']
+        set_ids = ['train', 'validate', 'test']
         p_xyz_file = os.path.join(self.cwd, 'tests', 'data', 'xyz', '0_test.xyz')
         gap = mltools.gap.Gap()
 
@@ -78,7 +78,7 @@ class TestParser(unittest.TestCase):
             gap.read_atoms(p_xyz_file, set_id)
 
     def test_write_atoms_pass(self):
-        set_ids = ['train', 'validate', 'holdout']
+        set_ids = ['train', 'validate', 'test']
         p_xyz_file = os.path.join(self.cwd, 'tests', 'data', 'xyz', '0_test.xyz')
         atoms_ref = ase.io.read(p_xyz_file)
         gap = mltools.gap.Gap()
