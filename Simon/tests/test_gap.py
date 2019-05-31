@@ -90,6 +90,14 @@ class TestParser(unittest.TestCase):
 
             np.testing.assert_array_equal(atoms_should.get_positions(), atoms_ref.get_positions())
 
+    def test_write_teach_sparse_parameters(self):
+        ref_file = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'teach.params')
+        gap = mltools.gap.Gap()
+        gap.params_teach_sparse = {'key_0' : 'val_0', 'key_1' : 'val_1'}
+        gap.gaps = {'name' : 'val_2', 'key_3' : 'val_3'}
+        gap.write_teach_sparse_parameters()
+        self.assertTrue(filecmp.cmp('teach.params', ref_file))
+
     def tearDown(self):
         os.chdir(self.cwd)
         shutil.rmtree(self.tmpdir)
