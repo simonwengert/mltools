@@ -17,8 +17,8 @@ class Gap(object):
         >>> gap.read_atoms('./path/to/train.xyz', 'train')
         >>> gap.run_teach_sparse()
     """
-    def __init__(self):
-        self._set_ids = ['train', 'validate', 'holdout']
+    def __init__(self, **kwargs):
+        self._set_ids = ['train', 'validate', 'test']
 
     # cmd_teach cannot be changed by user directly
     @property
@@ -62,12 +62,12 @@ class Gap(object):
         self._atoms_validate = atoms
 
     @property
-    def atoms_holdout(self):
-        return self._atoms_holdout
+    def atoms_test(self):
+        return self._atoms_test
 
-    @atoms_holdout.setter
-    def atoms_holdout(self, atoms):
-        self._atoms_holdout = atoms
+    @atoms_test.setter
+    def atoms_test(self, atoms):
+        self._atoms_test = atoms
 
     # full and direct excess to params-dicts
     @property
