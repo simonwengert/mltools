@@ -98,6 +98,16 @@ class TestParser(unittest.TestCase):
         gap.write_teach_sparse_parameters()
         self.assertTrue(filecmp.cmp('teach.params', ref_file))
 
+
+    def test__build_cmd_teach(self):
+        ref_cmd_teach = '! teach_sparse default_sigma={0 0.5 1 2} key_0=val_0 gap={gap_0 key_1=val_1}'
+        gap = mltools.gap.Gap()
+        gap.params_teach_sparse = {'default_sigma' : [0, 0.5, 1, 2],
+                                   'key_0' : 'val_0'}
+        gap.gaps = {'name' : 'gap_0',
+                    'key_1' : 'val_1'}
+        self.assertEqual(gap.cmd_teach, ref_cmd_teach)
+
     def tearDown(self):
         os.chdir(self.cwd)
         shutil.rmtree(self.tmpdir)
