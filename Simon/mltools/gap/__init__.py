@@ -167,6 +167,11 @@ class Gap(object):
 
         ase.io.write(destination, getattr(self, 'atoms_'+set_id))
 
+    def set_lattices(self, length, set_id):
+        "Purpose is to assign huge (cubic) cells to non-periodic systems in order to statisfy the fitting codes request for periodicity."
+        for atoms in getattr(self, 'atoms_'+set_id):
+            atoms.set_cell(np.diag([length]*3))
+
     # dumping parameters
     def _dict_to_string(self, items):
         keys = sorted(items)
