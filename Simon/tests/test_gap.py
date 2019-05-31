@@ -90,6 +90,17 @@ class TestParser(unittest.TestCase):
 
             np.testing.assert_array_equal(atoms_should.get_positions(), atoms_ref.get_positions())
 
+    def test_set_lattices(self):
+        length = 42  # of course 42
+        ref_cell = np.diag([length]*3)
+        p_xyz_file = os.path.join(self.cwd, 'tests', 'data', 'xyz', '0_test.xyz')
+
+        gap = mltools.gap.Gap()
+        gap.read_atoms(p_xyz_file, 'train')
+        gap.set_lattices(length, 'train')
+        for atoms in gap.atoms_train:
+            np.testing.assert_array_equal(atoms.get_cell(), ref_cell)
+
     def test_write_teach_sparse_parameters(self):
         ref_file = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'teach.params')
         gap = mltools.gap.Gap()
