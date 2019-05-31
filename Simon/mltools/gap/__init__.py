@@ -49,6 +49,10 @@ class Gap(object):
     def outfile_teach(self, filename):
         self._outfile_teach = filename
 
+    @property
+    def errfile_teach(self):
+        return self.outfile_teach[:-4]+'.err' if self.outfile_teach.endswith('.out') else self.outfile_teach+'.err'
+
     # atoms
     @property
     def atoms_train(self):
@@ -192,28 +196,28 @@ class Gap(object):
 
         Standard output and output for error will be written into separated files.
         """
-        if try_run:
-            print(self.cmd_teach)
-        else:
-            self._make_job_dir()
-            self.write_atoms(os.path.join(self.job_dir, self.params_teach_sparse['at_file']), 'train')
+        self._make_job_dir()
+        self.write_atoms(os.path.join(self.job_dir, self.params_teach_sparse['at_file']), 'train')
+        self.write_teach_sparse_parameters()
 
-            p_out_std = os.path.join(self.job_dir, self.outfile_teach)
-            p_out_err = p_out_std[:-4]+'.err' if p_out_std.endswith('.out') else p_out_std+'.err'
+        cwd = os.getcwd()
+        os.chdir(self.job_dir)
+        print(self.cmd_teach)
+        if not try_run:
+            os.system('{command} 1>{stdout} 2>{stderr}'.format(command=self.cmd_teach, stdout=self.outfile_teach, stderr=self.errfile_teach))
+        os.chdir(cwd)
 
-            print(self.cmd_teach)
-            os.system('{command} 1>{stdout} 2>{stderr}'.format(command=self.cmd_teach, stdout=p_out_std, stderr=p_out_err))
+        # NOTE: Would be more clean to have it via Popen, but Popen cannot handle this rather complex expression
+        # process = subprocess.Popen(self._cmd_teach.split(), stdout=subprocess.PIPE)  # stdout to file, stderr to screen
+        # while True:
+        #     with open(os.path.join(self.job_dir, self.outfile_teach), 'a') as o_file:
+        #         out = process.stdout.read(1)
+        #         if out == '' and process.poll() != None:
+        #             break
+        #         if out != '':
+        #             o_file.write(out)
+        #             o_file.flush()
 
-            # NOTE: Would be more clean to have it via Popen, but Popen cannot handle this rather complex expression
-            # process = subprocess.Popen(self._cmd_teach.split(), stdout=subprocess.PIPE)  # stdout to file, stderr to screen
-            # while True:
-            #     with open(os.path.join(self.job_dir, self.outfile_teach), 'a') as o_file:
-            #         out = process.stdout.read(1)
-            #         if out == '' and process.poll() != None:
-            #             break
-            #         if out != '':
-            #             o_file.write(out)
-            #             o_file.flush()
 
     def _make_job_dir(self):
         if not os.path.exists(self.job_dir):
