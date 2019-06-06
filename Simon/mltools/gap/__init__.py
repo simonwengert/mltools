@@ -241,7 +241,10 @@ class Gap(object):
         "Turns dictionary to a string of the form 'key=val' concatenating the items by a whitespace"
         assign_str = ''
         for key, value in items.items():
-            assign_str += '{}={} '.format(key, value)
+            if isinstance(value, (int, float)) and not isinstance(value, bool): # account for int represented in scientific notation
+                assign_str += '{}={:g} '.format(key, value)
+            else:
+                assign_str += '{}={} '.format(key, value)
         return assign_str[:-1]
 
     def _build_gap_str(self):
