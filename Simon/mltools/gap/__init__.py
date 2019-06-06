@@ -134,7 +134,7 @@ class Gap(object):
             raise ValueError(msg)
 
     # atoms handling
-    def read_atoms(self, path, set_id):
+    def read_atoms(self, path, set_id, append=False):
         """
         Read geometries from file and store as attribute of the instance (self.atoms_<set_id>).
 
@@ -148,7 +148,10 @@ class Gap(object):
             The atoms will be stored in self.atoms_<set_id>
         """
         self._check_set_id(set_id)
-        setattr(self, 'atoms_'+set_id, ase.io.read(path, index=':'))
+        if append:
+            setattr(self, 'atoms_'+set_id, getattr(self, 'atoms_'+set_id) + ase.io.read(path, index=':'))
+        else:
+            setattr(self, 'atoms_'+set_id, ase.io.read(path, index=':'))
 
     def write_atoms(self, destination, set_id):
         """
