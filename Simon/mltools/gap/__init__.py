@@ -386,16 +386,16 @@ class Gap(object):
             for key, value in params_tuple[0].items():
                 self.params_teach_sparse[key] = value
                 if key == 'default_sigma':
-                    _job_dir_sub = '_'.join([_job_dir_sub, '_', key, '_'.join([format(ds, '.2E') for ds in value])])
+                    _job_dir_sub = '_'.join([_job_dir_sub, '', key, '_'.join([format(ds, '.2E') for ds in value])])
                 else:
-                    _job_dir_sub = '_'.join([_job_dir_sub, '_', key, str(value)])
+                    _job_dir_sub = '_'.join([_job_dir_sub, '', key, str(value)])
 
             for gap_idx, gap_ranges in enumerate(params_tuple[1:]):
                 for key, value in gap_ranges.items():
                     self.gaps[gap_idx][key] = value
-                    _job_dir_sub = '_'.join([_job_dir_sub, '_', key, str(value)])
+                    _job_dir_sub = '_'.join([_job_dir_sub, '', key, str(value)])
 
-            self.job_dir = os.path.join(_job_dir, _job_dir_sub[3:])
+            self.job_dir = os.path.join(_job_dir, _job_dir_sub[2:])
             self.run_teach_sparse(try_run)
             self.run_quip('validate', try_run)
             if del_gp_file:
