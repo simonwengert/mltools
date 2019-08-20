@@ -242,7 +242,7 @@ class Gap(object):
     # dumping parameters
     def _dict_to_string(self, items):
         keys = sorted(items)
-        return 'dict(' + ',\n     '.join('{0}={1}'.format(key, items[key]) for key in keys) + ')\n'
+        return 'dict(' + ',\n     '.join('{0} = {1}'.format(key, items[key]) for key in keys) + ')\n'
 
     def write_gap_fit_parameters(self):
         "Write gap_fit-parameters and gap-parameters to file."
