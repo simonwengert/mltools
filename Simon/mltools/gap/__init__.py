@@ -27,6 +27,9 @@ class Gap(object):
         self.job_dir = kwargs.pop('job_dir', os.path.abspath(os.getcwd()))
         self.outfile_teach = kwargs.pop('outfile_teach', 'teach.out')
 
+        self._binary_gap_fit = kwargs.pop('binary_gap_fit', '')  # allows submission to cluster
+        self._binary_quip = kwargs.pop('binary_quip', '')  # allows submission to cluster
+
 
     # cmd_* cannot be changed by user directly
     @property
@@ -237,10 +240,10 @@ class Gap(object):
             o_file.write(self._dict_to_string(self.params_quip))
 
     # command handling
-    def _build_cmd_teach(self):
-        "Builds the teach_sparse command-line string"
-        items_copy = copy.deepcopy(self._params_teach_sparse)  # avoid changes in self.params_teach_sparse
-        cmd_str = '! teach_sparse '
+    def _build_cmd_gap_fit(self):
+        "Builds the gap_fit command-line string"
+        items_copy = copy.deepcopy(self._params_gap_fit)  # avoid changes in self.params_gap_fit
+        cmd_str = '! gap_fit ' if not self._binary_gap_fit else self._binary_gap_fit+' '
         cmd_str += 'default_sigma={' + ' '.join([str(df) for df in items_copy.pop('default_sigma')]) + '}'
         cmd_str += ' '
         cmd_str += self._build_assign_str(items_copy)
@@ -275,7 +278,7 @@ class Gap(object):
 
     def _build_cmd_quip(self):
         "Builds the quip command-line string"
-        cmd_str = '! quip '
+        cmd_str = '! quip ' if not self._binary_quip else self._binary_quip+' '
         cmd_str += self._build_assign_str(self._params_quip)
         cmd_str += ' | grep AT | sed \'s/AT//\''
         self._cmd_quip = cmd_str
