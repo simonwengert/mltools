@@ -837,3 +837,83 @@ class Gap(object):
         return [(x_vals.name, np.mean(x_val_mins)),  # list of tuples to keep ordering (as defined in `df`)
                 (y_vals.name, np.mean(y_val_mins))]
 
+    def view_crossval(self, df, log=[]):
+        "Create plots for hypersurface of each subset and print some info."
+        x_val_mins, y_val_mins = [], []  # used to get the mean values over the subsets
+
+        for level in np.unique(df.index.get_level_values(0)):
+
+            df_sub = df.loc[level]
+
+            # extract data
+            z_vals = df_sub.pop('RMSE')
+
+            cols = df_sub.columns
+            if len(cols) > 2:
+                raise ValueError('Dimension missmatch. Found more than two possibilities for x- and y-axis.')
+            x_vals = df_sub[cols[0]]
+            y_vals = df_sub[cols[1]]
+
+            arg_min = z_vals.idxmin
+            x_val_min = x_vals[arg_min]
+            y_val_min = y_vals[arg_min]
+            z_val_min = z_vals[arg_min]
+
+            # print some data (before showing the plot,
+            # thus the user will see both simulatneously)
+            msg = '\nOptimum values {0}:\n'.format(level)
+            msg += '-'*(len(msg)-2) + '\n'
+            msg += '{0:<30} : {1:>20}\n'.format(x_vals.name, x_val_min)
+            msg += '{0:<30} : {1:>20}\n'.format(y_vals.name, y_val_min)
+            msg += '{0:<30} : {1:>20}\n'.format(z_vals.name, z_val_min)
+            print(msg)
+
+            # plot data
+            fig = plt.figure()
+            ax = Axes3D(fig)
+
+            ax.set_xlabel(x_vals.name)
+            ax.set_ylabel(y_vals.name)
+            ax.set_zlabel(z_vals.name)
+
+            for idx, log_i in enumerate(log):
+                if idx == 0 and log_i:
+                    x_vals = np.log10(x_vals)
+                    x_val_min = np.log10(x_val_min)
+                if idx == 1 and log_i:
+                    y_vals = np.log10(y_vals)
+                    y_val_min = np.log10(y_val_min)
+                if idx == 2 and log_i:
+                    z_vals = np.log10(z_vals)
+                    z_val_min = np.log10(z_val_min)
+
+            ax.plot_trisurf(x_vals, y_vals, z_vals, cmap=cm.jet, linewidth=0.2)
+
+            ax.plot([x_val_min], [y_val_min], [z_val_min], 'ro')
+
+            plt.show()
+
+            # store for calculating mean values later
+            for idx in enumerate(log):
+                if idx == 0 and log[idx]:
+                    x_vals = 10**x_vals
+                    x_val_min = 10**x_val_min
+                if idx == 1 and log[idx]:
+                    y_vals = 10**y_vals
+                    y_val_min = 10**y_val_min
+                if idx == 2 and log[idx]:
+                    z_vals = 10**z_vals
+                    z_val_min = 10**z_val_min
+
+            x_val_mins.append(x_val_min)
+            y_val_mins.append(y_val_min)
+
+        # print mean values
+        x_val_mean = np.mean(x_val_mins)
+        y_val_mean = np.mean(y_val_mins)
+        msg = '\nMean of optimum values:\n'
+        msg += '-'*(len(msg)-2) + '\n'
+        msg += '{0:<20} : {1:>10}\n'.format(x_vals.name, x_val_mean)
+        msg += '{0:<20} : {1:>10}\n'.format(y_vals.name, y_val_mean)
+        print(msg)
+
