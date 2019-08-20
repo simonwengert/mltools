@@ -4,12 +4,14 @@ import copy
 import subprocess
 import itertools as ito
 import numpy as np
+import scipy.optimize
 import random
 import pandas as pd
 import sklearn.metrics
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
+import time
 
 import ase.io
 
@@ -948,4 +950,95 @@ class Gap(object):
                          ha = 'center', va = 'center',
                          transform = ax.transAxes)
         plt.show()
+
+    def run_local_optimization(self, init_params_gap_fit, init_gaps, key_true, key_pred, method='l-bfgs-b', options={}, del_gp_file=True):
+        # l-bfgs-b since allows for boundary conditions
+        # NOTE: this method is currently in an alpha-state
+        # TODO: key_true/key_pred works only for energies (or one single scalar) so far, not for a loss function with E, F, ... contributions, nor for forces alone
+        if not isinstance(init_gaps, list):
+            init_gaps = [init_gaps]
+
+        bak_params_gap_fit = self.params_gap_fit
+        bak_gaps = self.gaps
+
+        decoder, hyperparams, bounds = self._init_to_hyper(init_params_gap_fit, init_gaps)  # optimization function requires a single array as input
+        opt = scipy.optimize.minimize(self._run_local_optimization, hyperparams, bounds=bounds, args=(decoder, key_true, key_pred), method=method, options=options)
+        opt_params_gap_fit, opt_gaps = self._hyper_decode(opt.x, decoder)
+
+        self.params_gap_fit = bak_params_gap_fit
+        self.gaps = bak_gaps
+
+        return opt_params_gap_fit, opt_gaps
+
+    def _run_local_optimization(self, hyperparams, decoder, key_true, key_pred, del_gp_file=True):
+
+        self.set_hyper_values(hyperparams, decoder)
+        self.run_gap_fit()
+        time.sleep(2)  # sleep for 1 second to write the files required for run_quip
+        self.run_quip('validate')
+
+        outfile_quip = 'quip_' + self.params_quip['atoms_filename']
+        y_true_n_pred = mltools.misc.get_info(os.path.join(self.job_dir, outfile_quip), [key_true, key_pred])
+        y_true, y_pred = y_true_n_pred[key_true], y_true_n_pred[key_pred]
+
+        # TODO: Loss-function instead of rmse
+        rmse = self.get_rmse(y_true, y_pred)
+        print('\nRMSE:      ', rmse, '\n')
+
+        if del_gp_file:
+            [os.remove(os.path.join(self.job_dir, n_file)) for n_file in os.listdir(self.job_dir)
+             if self.params_gap_fit['gp_file'] in n_file]
+
+        return rmse
+
+    def _init_to_hyper(self, init_params_gap_fit, init_gaps):
+        keys, vals, bounds = [], [], []
+
+        for key, (val, boundaries) in sorted(init_params_gap_fit.items()):
+            keys.append('_'.join(['gap_fit', key]))
+            vals.append(val)
+            bounds.append(boundaries)
+
+        for idx, gap in enumerate(init_gaps):
+            for key, (val, boundaries) in sorted(gap.items()):
+                keys.append('_'.join(['gap', str(idx), key]))
+                vals.append(val)
+                bounds.append(boundaries)
+        return keys, np.array(vals),  bounds
+
+    def set_hyper_values(self, hyperparams, keys):
+        "Apply hyperparameters to `self.params_gap_fit` and `self.gaps`"
+        # TODO:
+        #   - TST
+        prefix_gap_fit = 'gap_fit_'
+        prefix_gaps = 'gap_'
+        ds_mapping = {'energies' : 0, 'forces' : 1, 'virials' : 2, 'hessians' : 3}
+
+        for idx, (key, val) in enumerate(zip(keys, hyperparams)):
+            if key.startswith(prefix_gap_fit):
+                if 'default_sigma' in key:
+                    specifier = key.rsplit('_', 1)[-1]
+                    self.params_gap_fit['default_sigma'][ds_mapping[specifier]] = val
+                else:
+                    self.params_gap_fit[key.split('_', 1)[-1]] = val
+            if key.startswith(prefix_gaps):
+                gap_idx, _key = key.split('_', 2)[1:]
+                self.gaps[int(gap_idx)][_key] = val
+
+    def _hyper_decode(self, hyperparams, keys):
+        # TODO
+        prefix_gap_fit = 'gap_fit_'
+        prefix_gaps = 'gap_'
+
+        params_gap_fit = {}
+        num_gaps = len(np.unique(['_'.join(key.split('_', 2)[:2]) for key in keys if key.startswith(prefix_gaps)]))
+        gaps = [{} for gap in range(num_gaps)]
+
+        for idx, (key, val) in enumerate(zip(keys, hyperparams)):
+            if key.startswith(prefix_gap_fit):
+                params_gap_fit[key.split('_', 1)[-1]] = val
+            if key.startswith(prefix_gaps):
+                gap_idx, _key = key.split('_', 2)[1:]
+                gaps[int(gap_idx)][_key] = val
+        return params_gap_fit, gaps
 
