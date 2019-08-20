@@ -503,44 +503,45 @@ class Gap(object):
         self.atoms_train = None
         self.atoms_validate = None
 
-    def _get_subsets(self, num, seed, omnipresent=[]):
+    def get_subsets_random(self, data, num, seed, omnipresent=[]):
         """
-        Separates the trainin-set into sub-sets.
+        Separate a list into sub-lists by random selection.
 
         Parameters:
         -----------
+        data : list
+            Storages the entire data-set to be separated.
         num: int
-            Number of sub-sets to be generated.
+            Number of subsets to be generated.
         seed : int
             Seed from the random number generator.
         omnipresent : list
-            Stores atoms-objects to be present in each
-            of the sub-sets.
+            Stores entries to be present in each
+            of the subsets.
 
         Returns:
         --------
-        set_subs : list
+        subsets : list
             List of lists with each of the inner ones
-            representing a sub-set of the training-set.
+            representing a subset of the training-set.
         """
-        atoms = copy.deepcopy(self.atoms_train)  # avoid changes in self.atoms_train
-        set_subs = []
-        size = len(self.atoms_train)//num  # the rest will later be assigned equally to the num sets
-        # populate ``num`` sub-sets, by picking out entries from ``atoms``,
-        # i.e. len(atoms) gets reduced in each iteration
+        subsets = []
+        size = len(data)//num  # the rest will later be assigned equally to the num sets
+        # populate `num` subsets, by picking out entries from `data`,
+        # i.e. len(data) gets reduced in each iteration
         for idx in range(num):
-            set_sub, atoms = self._separate_random_uniform(atoms, size, seed)
+            subset, data = self.separate_random_uniform(data, size, seed)
 
             if omnipresent:
-                set_sub = omnipresent + set_sub
+                subset = omnipresent + subset  # `omnipresent` will appear as the first entries
 
-            set_subs.append(set_sub)
-        # assign the remainig entries in ``atoms`` to the sub-sets
-        for idx in range(len(atoms)):
-            set_subs[idx].append(atoms[idx])
-        return set_subs
+            subsets.append(subset)
+        # assign the remainig entries in `data` to the subsets
+        for idx in range(len(data)):
+            subsets[idx].append(data[idx])
+        return subsets
 
-    def _separate_random_uniform(self, init_set, subset_size, seed):
+    def separate_random_uniform(self, init_set, subset_size, seed):
         """
         Separates a list into two by selecting entries in a random-uniform manner.
 
