@@ -30,4 +30,11 @@ REV: revert an earlier commit
 STY: style fix (whitespace, PEP8)
 TST: addition or modification of tests
 ```
+### Requirements
+Required for mltools are:
 
+* ase     >= 3.18.0b1
+* nose    >= 1.3.7
+* numpy   >= 1.16.1
+* scipy   >= 1.2.1
+* pandas  >= 0.23.1
