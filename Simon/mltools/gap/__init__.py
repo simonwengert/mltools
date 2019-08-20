@@ -4,6 +4,7 @@ import subprocess
 import itertools as ito
 import numpy as np
 import random
+import sklearn.metrics
 
 import ase.io
 
