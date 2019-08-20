@@ -4,9 +4,12 @@ import subprocess
 import itertools as ito
 import numpy as np
 import random
+import pandas as pd
 import sklearn.metrics
 
 import ase.io
+
+import mltools.misc
 
 
 class Gap(object):
@@ -458,6 +461,23 @@ class Gap(object):
 
         return dir_name[3:]
 
+    def _params_tuple_to_dataframe(self, params_tuple):
+        "Turn `params_tuple` into a DataFrame with each key labeling a column and the row storing the values."
+        df = pd.DataFrame()
+
+        for key, value in params_tuple[0].items():
+            if key == 'default_sigma':
+                for suffix, val in zip(['energies', 'forces', 'virials', 'hessians'], value):
+                    df[key+'_'+suffix] = [val]
+            else:
+                df[key] = [value]
+
+        for gap_idx, gap_ranges in enumerate(params_tuple[1:]):
+            for key, value in gap_ranges.items():
+                df['_'.join(['gap', str(gap_idx), key])] = [value]
+
+        return df
+
     def run_crossval(self, gap_fit_ranges, gaps_ranges, subsets, del_gp_file=True, try_run=False, omnipresent=[]):
         """
         Perform a Cross-validation creating training-set and validation-set based on the provided data-sets.
@@ -571,6 +591,199 @@ class Gap(object):
         subset = [entry for idx, entry in enumerate(init_set) if idx in indices_vs]
         init_set_red = [entry for idx, entry in enumerate(init_set) if idx not in indices_vs]
         return subset, init_set_red
+
+    def eval_grid(self, gap_fit_ranges, gaps_ranges, key_true, key_pred, destination='', job_dir='', outfile_quip=''):
+        """
+        Extract metrics for the prediction-errors and the corresonding parameters of the models sampled on the grid.
+
+        Parameters:
+        -----------
+        gap_fit_ranges : dict
+            Stores the keys and the range of values
+            for which the metrics will be extracted.
+        gaps_ranges : list (or dict)
+            List of dictionaries (or a single dictionary in case
+            only a single gap-potential was used).
+            Each dictionary stores the keys and the range of values
+            for which the metrics will be extracted.
+        key_true : string
+            Identifier for the reference value within an ase-object.
+        key_pred : string
+            Identifier for the prediction value within an ase-object.
+        destination : string, optional
+            Location of file the extracted data will be written to.
+            If not specified no file will be written.
+            If it ends with `.h5` it will be written in HDF5 format
+            (which can be read in again).
+            If it ends with `.txt` it will be written in human readable
+            format (but cannot be read in again).
+            If it ends with `.both` two files will be written, one for
+            each of the upper suffixes.
+        job_dir : string, optional
+            Path to the directory containing the sub-directories created
+            during `run_sample_grid()`.
+            Defaults to `self.job_dir` if not specified.
+        outfile_quip : string, optional
+            Name of the xyz-file created by the quip command during evaluation.
+            Defaults to the `atoms_filename` specified in `self.params_quip`
+            with the prefix `quip_`.
+
+        Returns:
+        --------
+        results : pandas DataFrame
+            Stores the extracted data. Each row represents a model
+            while each column represents either a model-parameter
+            or an error-metric (e.g. RMSE) achieved by the model.
+            The column ordering is `gap_fit`-, `gaps`- and
+            then `error-metrics`.
+        """
+        if not isinstance(gaps_ranges, list):
+            gaps_ranges = [gaps_ranges]
+
+        results = pd.DataFrame()
+
+        # try to assign defaults if arguments have not been specified explicitely
+        job_dir = job_dir if job_dir else self.job_dir
+        outfile_quip = outfile_quip if outfile_quip else 'quip_' + self.params_quip['atoms_filename']
+
+        for params_tuple in self._get_params_tuples(gap_fit_ranges, gaps_ranges):
+
+            # initialize dataframe with parameter settings
+            result_single  = self._params_tuple_to_dataframe(params_tuple)
+
+            # add values for some metrics (e.g. RMSE) based predictions
+            true_n_pred = mltools.misc.get_info(
+                    p_xyz_file = os.path.join(job_dir, self._params_tuple_to_dir_name(params_tuple), outfile_quip),
+                    keys = [key_true, key_pred])
+            for metric in self._metrics:
+                result_single[metric] = getattr(self, 'get_'+metric.lower())(true_n_pred[key_true], true_n_pred[key_pred])
+
+            results = pd.concat([results, result_single], ignore_index=True)
+
+        # clean up columns with same value everywhere (e.g. some of the 'default_sigma_*' columns)
+        for column in results.columns:
+            if len(np.unique(results[column])) == 1:
+                results = results.drop(columns=column)
+
+        if destination:
+            self.write_dataframe(results, destination)
+
+        return results
+
+    def eval_crossval(self, gap_fit_ranges, gaps_ranges, num, key_true, key_pred, destination='', job_dir='', outfile_quip=''):
+        """
+        Extract metrics for the prediction-errors and the corresonding parameters of the models sampled during Cross-validation.
+
+        Parameters:
+        -----------
+        gap_fit_ranges : dict
+            Stores the keys and the range of values
+            for which the metrics will be extracted.
+        gaps_ranges : list (or dict)
+            List of dictionaries (or a single dictionary in case
+            only a single gap-potential was used).
+            Each dictionary stores the keys and the range of values
+            for which the metrics will be extracted.
+        num: int
+            Number of subsets that have been generated.
+        key_true : string
+            Identifier for the reference value within an ase-object.
+        key_pred : string
+            Identifier for the prediction value within an ase-object.
+        destination : string, optional
+            Location of file the extracted data will be written to.
+            If not specified no file will be written.
+            If it ends with `.h5` it will be written in HDF5 format
+            (which can be read in again).
+            If it ends with `.txt` it will be written in human readable
+            format (but cannot be read in again).
+            If it ends with `.both` two files will be written, one for
+            each of the upper suffixes.
+        job_dir : string, optional
+            Path to the directory containing the sub-directories created
+            during `run_Cross-validation()`.
+            Defaults to `self.job_dir` if not specified.
+        outfile_quip : string, optional
+            Name of the xyz-file created by the quip command during evaluation.
+            Defaults to the `atoms_filename` specified in `self.params_quip`
+            with the prefix `quip_`.
+
+        Returns:
+        --------
+        results : pandas DataFrame
+            Stores the extracted data. Each row represents a model
+            while each column represents either a model-parameter
+            or an error-metric (e.g. RMSE) achieved by the model.
+            The column ordering is `gap_fit`-, `gaps`- and
+            then `error-metrics`.
+            Each row has an additional index-level specifying
+            to which subset the model belongs.
+        """
+        # try to assign defaults if arguments have not been specified explicitely
+        job_dir = job_dir if job_dir else self.job_dir
+
+        results_frames = []  # stores DataFrames to be merged in the end
+        keys = []  # top-level index of the final, merged DataFrame
+
+        for idx in range(num):
+            job_dir_sub = str(idx)+'_crossval'
+            results_frames.append(
+                    self.eval_grid(
+                        gap_fit_ranges = gap_fit_ranges,
+                        gaps_ranges = gaps_ranges,
+                        key_true = key_true,
+                        key_pred = key_pred,
+                        job_dir = os.path.join(job_dir, job_dir_sub),
+                        outfile_quip = outfile_quip)
+                    )
+            keys.append(job_dir_sub)
+
+        results = pd.concat(results_frames, keys=keys)
+
+        if destination:
+            self.write_dataframe(results, destination)
+
+        return results
+
     def get_rmse(self, y_true, y_pred):
         "Return the RMSE value corresonding to the two data-sets."
         return np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred))
+
+    def write_dataframe(self, df, destination):
+        """
+        Write a DataFrame to a file.
+
+        Parameters:
+        -----------
+        df : pandas DataFrame
+            Stores data to be written to file.
+        destination : string
+            Location of the file the DataFrame will be written to.
+            If it ends with `.h5` it will be written in HDF5 format
+            (which can be read in again).
+            If it ends with `.txt` it will be written in human readable
+            format (but cannot be read in again).
+            If it ends with `.both` two files will be written, one for
+            each of the upper suffixes.
+        """
+        # if the underlying dir-tree needs to be created
+        if os.path.dirname(destination):
+            self._make_dirs(os.path.dirname(destination))
+
+        # split `destination` to evaluate the file-extension
+        basename, suffix = os.path.splitext(destination)
+        suffixes = ['.txt', '.h5'] if suffix == '.both' else [suffix]
+
+        for suffix in suffixes:
+
+            # re-build `destination`
+            destination = basename+suffix
+
+            if suffix == '.txt':
+                with open(destination, 'w') as o_file:
+                    o_file.write(df.to_string())
+            elif suffix == '.h5':
+                df.to_hdf(destination, 'df', format='t', data_columns=True)
+            else:
+                raise ValueError('Accepted file-extensions are \'.txt\', \'.h5\' or \'.both\'')
+
