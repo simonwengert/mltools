@@ -1046,6 +1046,51 @@ class Gap(object):
                 gaps[int(gap_idx)][_key] = val
         return params_gap_fit, gaps
 
+    def find_furthest(self, dist_matrix, seeds, number):
+        """
+        Find samples furthest apart from each other based on its distance matrix.
+
+        Parameters:
+        -----------
+        dist_matrix : ndarray (N, N)
+            Distance matrix of the underlying samples.
+        seeds: int or list/ndarray of integers
+            Starting point for searching further distant samples.
+        number : int
+            Total number of samples to be selected.
+
+        Returns:
+        --------
+        samples : list
+            Contains the indices that have been selected
+            as furthest from each other.
+        """
+        if isinstance(seeds, int):
+            israise = True if number <= 1 else False
+
+            samples = [seeds]  # storage for furthest samples
+            samples.append(np.argmax(dist_matrix[seeds]))  # find furthest from input sample
+
+        elif isinstance(seeds, (list, np.ndarray)):
+            israise = True if number <= len(seeds) else False
+
+            samples = [sample for sample in seeds]
+
+        if israise:
+            raise ValueError('`number` can not be smaller than specied in `seeds`')
+
+
+        for idx in range(number-len(samples)):
+            samples_rem = np.delete(np.arange(len(dist_matrix)), samples)  # get indices of not selected samples
+
+            dists = dist_matrix[samples][:, samples_rem]  # slice distances for selected samples to remaining samples
+
+            dists_min = np.min(dists, axis=0)  # for each remaining sample find closest distance to already selected sample
+            sample_furthest = np.argmax(dists_min)  # select the remaining sample furthest to all selected samples
+
+            samples.append(samples_rem[sample_furthest])
+        return samples
+
     def get_descriptors(self, set_id, desc_str):
         """
         Construct the descriptors for a given set of geometries.
