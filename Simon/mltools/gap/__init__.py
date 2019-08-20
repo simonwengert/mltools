@@ -425,7 +425,6 @@ class Gap(object):
         "Returns the cartesian product of the values' ranges in terms of individual dictionaries."
         return [dict(zip(items.keys(), values)) for values in ito.product(*items.values())]
 
-    def crossvalidation(self, num, seed, teach_sparse_ranges, gaps_ranges, del_gp_file=True, try_run=False, omnipresent=[]):
     def _get_params_tuples(self, gap_fit_ranges, gaps_ranges):
         "Turn value ranges for the arguments keys into tuples of the form (<gap_fit-settings>, <gap_0-settings>, ...)"
         gap_fit_products = self._dict_cartesian_product(gap_fit_ranges)
@@ -458,59 +457,51 @@ class Gap(object):
 
         return dir_name[3:]
 
+    def run_crossval(self, gap_fit_ranges, gaps_ranges, subsets, del_gp_file=True, try_run=False, omnipresent=[]):
         """
-        Perform a cross-validation on the trainin-set data.
+        Perform a Cross-validation creating training-set and validation-set based on the provided data-sets.
+        Note: `self.atoms_train` and `self.atoms_validate` will be set to `None` after the Cross-validation.
 
         Parameters:
         -----------
-        num: int
-            Number of sub-sets to be generated.
-        seed : int
-            Seed from the random number generator.
-        teach_sparse_ranges : dict
+        gap_fit_ranges : dict
             Stores the keys and the range of values to be sampled.
         gaps_ranges : list (or dict)
             List of dictionaries (or a single dictionary in case
             only a single gap-potential is used).
             Each dictionary stores the keys and the range of values to be sampled.
+        subsets: list
+            Stores lists of ase-atoms objects with each of the inner lists
+            representing a subset used for the Cross-validation.
         del_gp_file : boolean
             Allows to remove the (sometimes rather large) ``gp_file``.
         try_run : boolean
             Run in test-mode.
-        omnipresent : list
+        omnipresent : list or ase-atoms object
             Stores atoms-objects to be present in each
-            of the sub-sets.
+            of the subsets.
         """
-        # storage to reset later again to these values
-        _job_dir = self.job_dir
-        atoms_train = copy.deepcopy(self.atoms_train)
-        # self.atoms_validate might not be initiated
-        if hasattr(self, 'atoms_validate'):
-            atoms_validate = copy.deepcopy(self.atoms_validate)
-            exists_atoms_validate = True
-        else:
-            exists_atoms_validate = False
+        # convert to list
+        omnipresent = [omnipresent] if not isinstance(omnipresent, list) else omnipresent
 
-        sub_sets = self._get_subsets(num, seed, omnipresent)
-        for idx in range(num):
-            # assing validation- and training-sets
-            sub_sets_copy = copy.deepcopy(sub_sets)
-            self.atoms_validate = sub_sets_copy.pop(idx)  # one sub-set for validatoin
-            self.atoms_train = list(ito.chain(*sub_sets_copy))  # the remaining sub-sets for training
+        bak_job_dir = self.job_dir  # store attribute and reset later again to that value
 
-            # each sub-validation of the crossvalidation gets its one directory
-            self.job_dir = os.path.join(_job_dir, str(idx)+'_crossval')
+        for idx in range(len(subsets)):
+            # assign validation- and training-sets
+            subsets_copy = copy.deepcopy(subsets)
+            self.atoms_validate = subsets_copy.pop(idx) + omnipresent  # one subset for validatoin
+            self.atoms_train = list(ito.chain(*subsets_copy)) + omnipresent  # the remaining subsets for training
+
+            # each sub-validation of the Cross-validation gets its one directory
+            self.job_dir = os.path.join(bak_job_dir, str(idx)+'_crossval')
 
             # perform the grid search for hyperparameters
-            self.run_sample_grid(teach_sparse_ranges, gaps_ranges, del_gp_file, try_run)
+            self.run_sample_grid(gap_fit_ranges, gaps_ranges, del_gp_file, try_run)
 
-        self.job_dir = _job_dir
-        self.atoms_train = atoms_train
-        if exists_atoms_validate:
-            self.atoms_validate = atoms_validate
-        else:
-            self.atoms_validate = None
-
+        # set attributes to defined values
+        self.job_dir = bak_job_dir
+        self.atoms_train = None
+        self.atoms_validate = None
 
     def _get_subsets(self, num, seed, omnipresent=[]):
         """
