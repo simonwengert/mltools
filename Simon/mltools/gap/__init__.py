@@ -182,6 +182,9 @@ class Gap(object):
             destination += suffix
         self._check_set_id(set_id)
 
+        dirname = os.path.dirname(destination)
+        if dirname:
+            self._make_dirs(dirname)
         ase.io.write(destination, getattr(self, 'atoms_'+set_id))
 
     def set_lattices(self, length, set_id):
@@ -302,7 +305,7 @@ class Gap(object):
         try_run : boolean
             Run in test-mode.
         """
-        self._make_job_dir()
+        self._make_dirs(self.job_dir)
         self.write_atoms(os.path.join(self.job_dir, self.params_gap_fit['at_file']), 'train')
         self.write_gap_fit_parameters()
 
@@ -345,7 +348,7 @@ class Gap(object):
             Defines the geometry set that will be used for predicting outcomes.
             Must be one of the string stored in _set_ids.
         """
-        self._make_job_dir()
+        self._make_dirs(self.job_dir)
         self.write_atoms(os.path.join(self.job_dir, self.params_quip['atoms_filename']), set_id)
         self.write_quip_parameters()
 
@@ -359,9 +362,9 @@ class Gap(object):
             os.system('{command} 1>{stdout} 2>{stderr}'.format(command=self.cmd_quip, stdout=outfile_quip, stderr=errfile_quip))
         os.chdir(cwd)
 
-    def _make_job_dir(self):
-        if not os.path.exists(self.job_dir):
-            os.makedirs(self.job_dir)
+    def _make_dirs(self, dirs):
+        if not os.path.exists(dirs):
+            os.makedirs(dirs)
 
     def run_sample_grid(self, gap_fit_ranges, gaps_ranges, del_gp_file=True, try_run=False):
         """
