@@ -788,3 +788,6 @@ class Gap(object):
             else:
                 raise ValueError('Accepted file-extensions are \'.txt\', \'.h5\' or \'.both\'')
 
+    def read_dataframe(self, source):
+        "Read in a DataFrame stored in a file with HDF5 format and return it."
+        return pd.read_hdf(source, 'df')
