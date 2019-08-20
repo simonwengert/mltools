@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import copy
 import subprocess
@@ -6,6 +7,9 @@ import numpy as np
 import random
 import pandas as pd
 import sklearn.metrics
+import matplotlib.pyplot as plt
+from matplotlib import cm
+from mpl_toolkits.mplot3d import Axes3D
 
 import ase.io
 
