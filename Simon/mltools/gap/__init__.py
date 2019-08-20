@@ -2,6 +2,8 @@ from __future__ import print_function
 import os
 import copy
 import subprocess
+import tempfile
+import shutil
 import itertools as ito
 import numpy as np
 import scipy.optimize
@@ -14,6 +16,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import time
 
 import ase.io
+import quippy.atoms
+import quippy.descriptors
 
 import mltools.misc
 
@@ -1042,3 +1046,40 @@ class Gap(object):
                 gaps[int(gap_idx)][_key] = val
         return params_gap_fit, gaps
 
+    def get_descriptors(self, set_id, desc_str):
+        """
+        Construct the descriptors for a given set of geometries.
+
+        Parameters:
+        -----------
+        set_id : string
+            Defines which set of geometries to use.
+            Must be one of the string stored in _set_ids.
+        desc_str : string
+            String-representation of the settings
+            the will be used to construct the descriptors.
+
+        Returns:
+        --------
+        descs : list
+            Stores the descriptors of the molecules in terms
+            of numpy arrays.
+        """
+        descs = []  # storage for descriptors
+
+        tmp_dir = tempfile.mkdtemp()
+        for idx, atoms in enumerate(getattr(self, 'atoms_'+set_id)):
+            path = os.path.join(tmp_dir, 'atoms.xyz')
+            ase.io.write(path, atoms)
+            q_atoms = quippy.Atoms(path)
+
+            desc = quippy.descriptors.Descriptor(desc_str)
+            q_atoms.set_cutoff(desc.cutoff())
+            q_atoms.calc_connect()
+
+            descs.append(desc.calc(q_atoms)['descriptor'])  # calc. descriptor and append to store
+
+            os.remove(path+'.idx')  # in order to re-use same atoms.xyz file, we need to remove the *.idx file
+
+        shutil.rmtree(tmp_dir)
+        return descs
