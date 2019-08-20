@@ -21,7 +21,7 @@ class Gap(object):
         >>> gap.run_teach_sparse()
     """
     def __init__(self, **kwargs):
-        self._set_ids = ['train', 'validate', 'test']
+        self._set_ids = ['train', 'validate', 'test', 'other']
 
         # defaults
         self.job_dir = kwargs.pop('job_dir', os.path.abspath(os.getcwd()))
@@ -86,6 +86,14 @@ class Gap(object):
     @atoms_test.setter
     def atoms_test(self, atoms):
         self._atoms_test = atoms
+
+    @property
+    def atoms_other(self):
+        return self._atoms_other
+
+    @atoms_other.setter
+    def atoms_other(self, atoms):
+        self._atoms_other = atoms
 
     # full and direct excess to params-dicts
     @property
