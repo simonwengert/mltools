@@ -570,3 +570,6 @@ class Gap(object):
         subset = [entry for idx, entry in enumerate(init_set) if idx in indices_vs]
         init_set_red = [entry for idx, entry in enumerate(init_set) if idx not in indices_vs]
         return subset, init_set_red
+    def get_rmse(self, y_true, y_pred):
+        "Return the RMSE value corresonding to the two data-sets."
+        return np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred))
