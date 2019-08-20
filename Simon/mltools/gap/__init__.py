@@ -220,6 +220,25 @@ class Gap(object):
         for atoms, energy_sigma in zip(self.atoms_train, energy_sigmas):
                 atoms.info['energy_sigma'] = energy_sigma
 
+    def assign_force_atom_sigma_proportion(self, proportion, zero_sigma=1E-5):
+        """
+        adds an array to each atoms obj to determine the
+        force_atom_sigma
+
+        Parameters:
+        -----------
+        proportion : float
+            This proportion of each atoms force norm will be used
+            as the corresonding ``force_sigma_atom`` value.
+        zero_sigma : float
+            The ``force_atom_sigma`` value for atoms
+            with vanishing force norm.
+        """
+        for atoms in self.atoms_train:
+            fas = proportion*np.linalg.norm(atoms.get_forces(), axis=1)  # force_atom_sigma
+            fas[fas == 0] = zero_sigma
+            atoms.set_array("force_atom_sigma", fas)
+
     # dumping parameters
     def _dict_to_string(self, items):
         keys = sorted(items)
