@@ -13,19 +13,19 @@ class Gap(object):
     basic usage
         >>> gap = Gap()
         >>> gap.job_dir = '/path/to/dir'
-        >>> gap.outfile_teach = 'teach.out'
-        >>> gap.params_teach_sparse = {...}
+        >>> gap.outfile_gap_fit = 'gap_fit.out'
+        >>> gap.params_gap_fit = {...}
         >>> gap.gaps = [{'name' : ..., ...},
         >>>             {'name' : ..., ...}]
         >>> gap.read_atoms('./path/to/train.xyz', 'train')
-        >>> gap.run_teach_sparse()
+        >>> gap.run_gap_fit()
     """
     def __init__(self, **kwargs):
         self._set_ids = ['train', 'validate', 'test', 'other']
 
         # defaults
         self.job_dir = kwargs.pop('job_dir', os.path.abspath(os.getcwd()))
-        self.outfile_teach = kwargs.pop('outfile_teach', 'teach.out')
+        self.outfile_gap_fit = kwargs.pop('outfile_gap_fit', 'gap_fit.out')
 
         self._binary_gap_fit = kwargs.pop('binary_gap_fit', '')  # allows submission to cluster
         self._binary_quip = kwargs.pop('binary_quip', '')  # allows submission to cluster
@@ -33,10 +33,10 @@ class Gap(object):
 
     # cmd_* cannot be changed by user directly
     @property
-    def cmd_teach(self):
+    def cmd_gap_fit(self):
         "Update command string when called"
-        self._build_cmd_teach()
-        return self._cmd_teach
+        self._build_cmd_gap_fit()
+        return self._cmd_gap_fit
 
     @property
     def cmd_quip(self):
@@ -54,16 +54,16 @@ class Gap(object):
         self._job_dir = path
 
     @property
-    def outfile_teach(self):
-        return self._outfile_teach
+    def outfile_gap_fit(self):
+        return self._outfile_gap_fit
 
-    @outfile_teach.setter
-    def outfile_teach(self, filename):
-        self._outfile_teach = filename
+    @outfile_gap_fit.setter
+    def outfile_gap_fit(self, filename):
+        self._outfile_gap_fit = filename
 
     @property
-    def errfile_teach(self):
-        return self.outfile_teach[:-4]+'.err' if self.outfile_teach.endswith('.out') else self.outfile_teach+'.err'
+    def errfile_gap_fit(self):
+        return self.outfile_gap_fit[:-4]+'.err' if self.outfile_gap_fit.endswith('.out') else self.outfile_gap_fit+'.err'
 
     # atoms
     @property
@@ -100,12 +100,12 @@ class Gap(object):
 
     # full and direct excess to params-dicts
     @property
-    def params_teach_sparse(self):
-        return self._params_teach_sparse
+    def params_gap_fit(self):
+        return self._params_gap_fit
 
-    @params_teach_sparse.setter
-    def params_teach_sparse(self, params):
-        self._params_teach_sparse = params
+    @params_gap_fit.setter
+    def params_gap_fit(self, params):
+        self._params_gap_fit = params
 
     @property
     def gaps(self):
@@ -133,7 +133,7 @@ class Gap(object):
 
     # checks
     def _check_key(self, items, key):
-        "Check if a (required) key is in a dictionary, e.g. ``name`` in ``self.params_teach_sparse``"
+        "Check if a (required) key is in a dictionary, e.g. ``name`` in ``self.params_gap_fit``"
         if not key in items:
             msg = 'Key \'{}\' not found.'.format(key)
             raise KeyError(msg)
@@ -222,11 +222,11 @@ class Gap(object):
         keys = sorted(items)
         return 'dict(' + ',\n     '.join('{0}={1}'.format(key, items[key]) for key in keys) + ')\n'
 
-    def write_teach_sparse_parameters(self):
-        "Write teach_sparse-parameters and gap-parameters to file."
-        with open(os.path.join(self.job_dir, 'teach.params'), 'w') as o_file:
-            o_file.write('# params_teach_sparse\n')
-            o_file.write(self._dict_to_string(self.params_teach_sparse))
+    def write_gap_fit_parameters(self):
+        "Write gap_fit-parameters and gap-parameters to file."
+        with open(os.path.join(self.job_dir, 'gap_fit.params'), 'w') as o_file:
+            o_file.write('# params_gap_fit\n')
+            o_file.write(self._dict_to_string(self.params_gap_fit))
 
             o_file.write('\n')
             o_file.write('# gaps\n')
@@ -249,7 +249,7 @@ class Gap(object):
         cmd_str += self._build_assign_str(items_copy)
         cmd_str += ' '
         cmd_str += self._build_gap_str()
-        self._cmd_teach = cmd_str
+        self._cmd_gap_fit = cmd_str
 
     def _build_assign_str(self, items):
         "Turns dictionary to a string of the form 'key=val' concatenating the items by a whitespace"
@@ -262,14 +262,14 @@ class Gap(object):
         return assign_str[:-1]
 
     def _build_gap_str(self):
-        "Builds the gap-related part of the teach_sparse command-line string"
+        "Builds the gap-related part of the gap_fit command-line string"
         cmd_str = 'gap={'
         cmd_str += ' :'.join([self._build_potential_str(gap) for gap in self.gaps])
         cmd_str += '}'
         return cmd_str
 
     def _build_potential_str(self, items):
-        "Build the command-line string for a single desciptor within the gap-related part of teach_sparse"
+        "Build the command-line string for a single descriptor within the gap-related part of gap_fit"
         items_copy = copy.deepcopy(items)  # avoid changes in self.gaps
         pot_str = items_copy.pop('name')
         pot_str += ' '
@@ -284,16 +284,16 @@ class Gap(object):
         self._cmd_quip = cmd_str
 
     # command execution
-    def run_teach_sparse(self, try_run=False):
+    def run_gap_fit(self, try_run=False):
         """
-        Executes the teach_sparse command based on the defined settings in
-            self.params_teach_sparse,
+        Executes the gap_fit command based on the defined settings in
+            self.params_gap_fit,
             self.gaps,
             self.job_dir,
-            self.outfile_teach.
+            self.outfile_gap_fit.
 
         The training-set (self.atoms_train) will automatically be written to the file
-        specified in self.params_teach_sparse ('at_file').
+        specified in self.params_gap_fit ('at_file').
 
         Standard output and output for error will be written into separated files.
 
@@ -303,20 +303,20 @@ class Gap(object):
             Run in test-mode.
         """
         self._make_job_dir()
-        self.write_atoms(os.path.join(self.job_dir, self.params_teach_sparse['at_file']), 'train')
-        self.write_teach_sparse_parameters()
+        self.write_atoms(os.path.join(self.job_dir, self.params_gap_fit['at_file']), 'train')
+        self.write_gap_fit_parameters()
 
         cwd = os.getcwd()
         os.chdir(self.job_dir)
-        print(self.cmd_teach)
+        print(self.cmd_gap_fit)
         if not try_run:
-            os.system('{command} 1>{stdout} 2>{stderr}'.format(command=self.cmd_teach, stdout=self.outfile_teach, stderr=self.errfile_teach))
+            os.system('{command} 1>{stdout} 2>{stderr}'.format(command=self.cmd_gap_fit, stdout=self.outfile_gap_fit, stderr=self.errfile_gap_fit))
         os.chdir(cwd)
 
         # NOTE: Would be more clean to have it via Popen, but Popen cannot handle this rather complex expression
-        # process = subprocess.Popen(self._cmd_teach.split(), stdout=subprocess.PIPE)  # stdout to file, stderr to screen
+        # process = subprocess.Popen(self._cmd_gap_fit.split(), stdout=subprocess.PIPE)  # stdout to file, stderr to screen
         # while True:
-        #     with open(os.path.join(self.job_dir, self.outfile_teach), 'a') as o_file:
+        #     with open(os.path.join(self.job_dir, self.outfile_gap_fit), 'a') as o_file:
         #         out = process.stdout.read(1)
         #         if out == '' and process.poll() != None:
         #             break
@@ -363,13 +363,13 @@ class Gap(object):
         if not os.path.exists(self.job_dir):
             os.makedirs(self.job_dir)
 
-    def run_sample_grid(self, teach_sparse_ranges, gaps_ranges, del_gp_file=True, try_run=False):
+    def run_sample_grid(self, gap_fit_ranges, gaps_ranges, del_gp_file=True, try_run=False):
         """
         Learn and validate gap-potentials on a grid of parameters.
 
         Parameters:
         -----------
-        teach_sparse_ranges : dict
+        gap_fit_ranges : dict
             Stores the keys and the range of values to be sampled.
         gaps_ranges : list (or dict)
             List of dictionaries (or a single dictionary in case
