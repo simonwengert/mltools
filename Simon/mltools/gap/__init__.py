@@ -410,30 +410,14 @@ class Gap(object):
 
         _job_dir = self.job_dir  # used to reset it later again to that value
 
-        teach_sparse_products = self._dict_cartesian_product(teach_sparse_ranges)
-        gaps_products = [self._dict_cartesian_product(gap_ranges) for gap_ranges in gaps_ranges]
-        grid_dimensions = [teach_sparse_products] + gaps_products
-        for params_tuple in ito.product(*grid_dimensions):
-            _job_dir_sub = ''
-
-            for key, value in params_tuple[0].items():
-                self.params_teach_sparse[key] = value
-                if key == 'default_sigma':
-                    _job_dir_sub = '_'.join([_job_dir_sub, '', key, '_'.join([format(ds, '.2E') for ds in value])])
-                else:
-                    _job_dir_sub = '_'.join([_job_dir_sub, '', key, str(value)])
-
-            for gap_idx, gap_ranges in enumerate(params_tuple[1:]):
-                for key, value in gap_ranges.items():
-                    self.gaps[gap_idx][key] = value
-                    _job_dir_sub = '_'.join([_job_dir_sub, '', key, str(value)])
-
-            self.job_dir = os.path.join(_job_dir, _job_dir_sub[2:])
-            self.run_teach_sparse(try_run)
+        for params_tuple in self._get_params_tuples(gap_fit_ranges, gaps_ranges):
+            self._set_params_tuple_values(params_tuple)
+            self.job_dir = os.path.join(_job_dir, self._params_tuple_to_dir_name(params_tuple))
+            self.run_gap_fit(try_run)
             self.run_quip('validate', try_run)
             if del_gp_file:
                 [os.remove(os.path.join(self.job_dir, n_file)) for n_file in os.listdir(self.job_dir)
-                 if self.params_teach_sparse['gp_file'] in n_file]
+                 if self.params_gap_fit['gp_file'] in n_file]
 
         self.job_dir = _job_dir
 
@@ -442,6 +426,38 @@ class Gap(object):
         return [dict(zip(items.keys(), values)) for values in ito.product(*items.values())]
 
     def crossvalidation(self, num, seed, teach_sparse_ranges, gaps_ranges, del_gp_file=True, try_run=False, omnipresent=[]):
+    def _get_params_tuples(self, gap_fit_ranges, gaps_ranges):
+        "Turn value ranges for the arguments keys into tuples of the form (<gap_fit-settings>, <gap_0-settings>, ...)"
+        gap_fit_products = self._dict_cartesian_product(gap_fit_ranges)
+        gaps_products = [self._dict_cartesian_product(gap_ranges) for gap_ranges in gaps_ranges]
+        grid_dimensions = [gap_fit_products] + gaps_products
+        return ito.product(*grid_dimensions)
+
+    def _set_params_tuple_values(self, params_tuple):
+        "Apply definitions in `params_tuple` to `self.params_gap_fit` and `self.gaps`"
+        for key, value in params_tuple[0].items():
+            self.params_gap_fit[key] = value
+
+        for gap_idx, gap_ranges in enumerate(params_tuple[1:]):
+            for key, value in gap_ranges.items():
+                self.gaps[gap_idx][key] = value
+
+    def _params_tuple_to_dir_name(self, params_tuple):
+        "Turn `params_tuple` into a string with a key-value pair separated by 2*'_' individual key-value pairs by 3*'_'"
+        dir_name = ''
+
+        for key, value in params_tuple[0].items():
+            if key == 'default_sigma':
+                dir_name = '_'.join([dir_name, '_', key, '', '_'.join([format(ds, '.2E') for ds in value])])
+            else:
+                dir_name = '_'.join([dir_name, '_', key, '', str(value)])
+
+        for gap_idx, gap_ranges in enumerate(params_tuple[1:]):
+            for key, value in gap_ranges.items():
+                dir_name = '_'.join([dir_name, '_', key, '', str(value)])
+
+        return dir_name[3:]
+
         """
         Perform a cross-validation on the trainin-set data.
 
