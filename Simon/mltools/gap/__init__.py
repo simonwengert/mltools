@@ -26,6 +26,7 @@ class Gap(object):
     """
     def __init__(self, **kwargs):
         self._set_ids = ['train', 'validate', 'test', 'other']
+        self._metrics = ['RMSE']
 
         # defaults
         self.job_dir = kwargs.pop('job_dir', os.path.abspath(os.getcwd()))
