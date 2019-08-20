@@ -917,3 +917,31 @@ class Gap(object):
         msg += '{0:<20} : {1:>10}\n'.format(y_vals.name, y_val_mean)
         print(msg)
 
+    def view_correlation(self, sources, key_true, key_pred):
+        # TODO: improve plot settings
+        if not isinstance(sources, list):
+            sources = [sources]
+
+        fig, ax = plt.subplots()
+        for source in sources:
+            y_true_n_pred = mltools.misc.get_info(source, [key_true, key_pred])
+            y_true, y_pred = y_true_n_pred[key_true], y_true_n_pred[key_pred]
+
+            val_all = y_true + y_pred
+            val_range = [np.min(val_all), np.max(val_all)]
+
+            plt.plot(val_range, val_range, c='k')
+
+            label = 'RMSE : {:>.4}'.format(self.get_rmse(y_true, y_pred))
+            if len(sources) != 1:
+                plt.scatter(y_true, y_pred, label=label)
+                plt.legend()
+            else:
+                plt.scatter(y_true, y_pred)
+                plt.text(0.15, 0.95,
+                         s = label,
+                         fontsize = 12,
+                         ha = 'center', va = 'center',
+                         transform = ax.transAxes)
+        plt.show()
+
