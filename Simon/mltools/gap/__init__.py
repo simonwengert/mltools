@@ -1083,3 +1083,125 @@ class Gap(object):
 
         shutil.rmtree(tmp_dir)
         return descs
+
+    def calc_average_kernel_soap(self, desc_A, desc_B, zeta=2.0, C_AA=None, C_BB=None, local_kernel=np.dot):
+        """
+        Calculate the average kernel between two molecules/descriptors.
+
+        Parameters:
+        -----------
+        desc_A/B : ndarray
+            Descriptor representation of the molecules A/B.
+        zeta : float, optional
+            Specifies the sensitivity used to construct the descriptors.
+        C_AA/BB : float
+            Not normalized value of the average kernel.
+            This value will be used for normalization of the final value.
+        local_kernel : function, optional
+            Specifies the operation used to calculate the kernel.
+            The default builds the dot-product between individual descriptors.
+
+        Returns:
+        --------
+        C_ij : float
+            The value of the average kernel between molecule A and B.
+        """
+        # explicitely calculate values required for normalization
+        if C_AA == None:
+            C_AA = self._calc_average_kernel_soap_wo_C_AA_normalization(desc_A, desc_A, zeta, local_kernel=np.dot)
+        if C_BB == None:
+            C_BB = self._calc_average_kernel_soap_wo_C_AA_normalization(desc_B, desc_B, zeta, local_kernel=np.dot)
+
+        # backups; might be wrong; normalization?
+        # C_AB = np.einsum('im,jm->ij',desc_A, desc_B)
+        # return 1.0 / (n_A* n_B) * np.sum(C_AB)
+        #
+        # return local_kernel(np.mean(desc_A, axis=1), np.mean(desc_B, axis=1))
+
+        C_AB = self._calc_average_kernel_soap_wo_C_AA_normalization(desc_A, desc_B, zeta, local_kernel=np.dot)
+        C_ij = 1./np.sqrt(C_AA*C_BB)*C_AB
+        return C_ij
+
+    def _calc_average_kernel_soap_wo_C_AA_normalization(self, desc_A, desc_B, zeta, local_kernel=np.dot):
+        "Calculate the average kernel between two molecules/descriptors without (complete) normalization."
+        C_ABs = []
+        n_A = len(desc_A)
+        n_B = len(desc_B)
+        for comb in ito.product(desc_A, desc_B):
+            k_AB = local_kernel(comb[0], comb[1])
+            k_AA = local_kernel(comb[0], comb[0])
+            k_BB = local_kernel(comb[1], comb[1])
+
+            C_AB = (k_AB/np.sqrt(k_AA*k_BB))**zeta
+            C_ABs.append(C_AB)
+        return 1./(n_A*n_B)*np.sum(C_ABs)
+
+    def calc_kernel_matrix_soap(self, descriptors, destination='', header='', zeta=2.0, local_kernel=np.dot, calc_diag=False):
+        """
+        Construct the kernel-matrix for a set of molecules/descriptors.
+
+        The SOAP-kernel for a molecule consists of individual entries for each atom.
+        In order to compare entire molecules, the function construct the average kernel
+        for each molecule.
+
+        Parameters:
+        -----------
+        descriptors : list (N)
+            Stores the descriptors for each of the N molecules.
+        destination : string, optional
+            If given the kernel matrix will be written
+            to the specified location.
+        header : string, optional
+            If given the specified header will be added
+            to the file that stores the kernel matrix.
+        zeta : float, optional
+            Specifies the sensitivity used to construct the descriptors.
+        local_kernel : function, optional
+            Specifies the operation used to calculate the kernel.
+            The default builds the dot-product between individual descriptors.
+        calc_diag : boolean, optional
+            If set to `True` the diagonal elements will be calculated
+            specifically. Otherwise, the elements will be assigned to
+            a value of one.
+
+        Returns:
+        --------
+        C : ndarray (N, N)
+            The kernel matrix representing the similarities
+            between individual molecules.
+        """
+        num = len(descriptors)
+        C = np.zeros((num, num))
+
+        # required for normalization
+        C_AAs = []
+        for idx_A in range(num):
+            C_AA = self._calc_average_kernel_soap_wo_C_AA_normalization(descriptors[idx_A], descriptors[idx_A], zeta=zeta, local_kernel=local_kernel)
+            C_AAs.append(C_AA)
+
+        # fill the lower triangle (without the diagonal) with (normalized) kernel values.
+        for i in range(1, num):
+            for j in range(i):
+                C[i, j] = self.calc_average_kernel_soap(descriptors[i], descriptors[j], zeta=zeta, C_AA=C_AAs[i], C_BB=C_AAs[j], local_kernel=local_kernel)
+
+        # fill the diagonal elements
+        if calc_diag:
+            diag = []
+            for i in range(num):
+                C_ii = self.calc_average_kernel_soap(descriptors[i], descriptors[i], zeta=zeta, local_kernel=local_kernel)# TODO ???
+                diag.append(C_ii / np.sqrt(C_ii*C_ii))
+            diag = np.diag(diag)
+        else:
+            diag = np.diag([1]*num)
+
+        # Construct the full (symmetric) kernel matrix
+        C = C + C.T + diag
+
+        # save matrix
+        if destination:
+            np.savetxt(destination, C, header=header)
+
+        return C
+
+
+
