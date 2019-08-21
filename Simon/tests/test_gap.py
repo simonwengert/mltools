@@ -379,7 +379,7 @@ class TestParser(unittest.TestCase):
     def test_get_descriptors_soap(self):
         p_xyz_file = os.path.join(self.cwd, 'tests', 'data', 'xyz', '1_test.xyz')
         set_id = 'other'
-        desc_str = 'soap cutoff=6.0 l_max=8 n_max=8 atom_sigma=0.3 zeta=2 covariance_type=dot_product n_species=2 species_Z={8 1} n_Z=2 Z={8 1}'  # TODO rm sparse
+        desc_str = 'soap cutoff=6.0 l_max=8 n_max=8 atom_sigma=0.3 zeta=2 covariance_type=dot_product n_species=2 species_Z={8 1} n_Z=2 Z={8 1}'
 
         gap = mltools.gap.Gap()
         gap.read_atoms(p_xyz_file, set_id)
