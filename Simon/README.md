@@ -38,3 +38,4 @@ Required for mltools are:
 * numpy   >= 1.16.1
 * scipy   >= 1.2.1
 * pandas  >= 0.23.1
+* sklearn >= 0.19.1
