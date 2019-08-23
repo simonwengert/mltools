@@ -1189,6 +1189,10 @@ class Gap(object):
         In order to compare entire molecules, the function construct the average kernel
         for each molecule.
 
+         Note: Indices with capital letters (e.g. C_AA) refer to un-normalized kernel-values,
+               while indices with lower letters (e.g. C_ii) refer to kernel-values normalized
+               via the corresonding C_AA values.
+
         Parameters:
         -----------
         descriptors : list (N)
@@ -1233,7 +1237,7 @@ class Gap(object):
         if calc_diag:
             diag = []
             for i in range(num):
-                C_ii = self.calc_average_kernel_soap(descriptors[i], descriptors[i], zeta=zeta, local_kernel=local_kernel)# TODO ???
+                C_ii = self.calc_average_kernel_soap(descriptors[i], descriptors[i], zeta=zeta, local_kernel=local_kernel)
                 diag.append(C_ii / np.sqrt(C_ii*C_ii))
             diag = np.diag(diag)
         else:
