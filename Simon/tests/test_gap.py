@@ -411,6 +411,31 @@ class TestParser(unittest.TestCase):
         gap = mltools.gap.Gap()
         np.testing.assert_array_equal(gap.calc_kernel_matrix_soap(descriptors, calc_diag=calc_diag, local_kernel=local_kernel, zeta=zeta), ref_kernel_matrix)
 
+    def test_calc_distance_element(self):
+        kernel_matrix = np.array(                                           #  The three H2O molecules differ only in the lenght of one H-O bond.
+                [[1.0,                0.9983700867106244, 0.9961005991483849],
+                 [0.9983700867106244, 1.0,                0.9994705736118292],
+                 [0.9961005991483849, 0.9994705736118292, 1.0]])
+        ref_D_00 = 0.0
+        ref_D_01 = 0.057094891003934174
+
+        gap = mltools.gap.Gap()
+        self.assertEqual(gap.calc_distance_element(kernel_matrix[0, 0], kernel_matrix[0, 0], kernel_matrix[0, 0]), ref_D_00)
+        self.assertEqual(gap.calc_distance_element(kernel_matrix[0, 0], kernel_matrix[1, 1], kernel_matrix[0, 1]), ref_D_01)
+
+    def test_calc_distance_matrix(self):
+        kernel_matrix = np.array(                                           #  The three H2O molecules differ only in the lenght of one H-O bond.
+                [[1.0,                0.9983700867106244, 0.9961005991483849],
+                 [0.9983700867106244, 1.0,                0.9994705736118292],
+                 [0.9961005991483849, 0.9994705736118292, 1.0]])
+        ref_distance_matrix = np.array(
+                [[0.0,                  0.057094891003934174, 0.0883108243831424],
+                 [0.057094891003934174, 0.0,                  0.03254001807531068 ],
+                 [0.0883108243831424,   0.03254001807531068 , 0.0]])
+
+        gap = mltools.gap.Gap()
+        np.testing.assert_array_equal(gap.calc_distance_matrix(kernel_matrix), ref_distance_matrix)
+
     def tearDown(self):
         os.chdir(self.cwd)
         shutil.rmtree(self.tmpdir)
