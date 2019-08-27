@@ -1252,5 +1252,47 @@ class Gap(object):
 
         return C
 
+    def calc_distance_matrix(self, C, destination='', header=''):
+        """
+        Construct the distance-matrix from a given kernel-matrix.
 
+        Parameters:
+        -----------
+        C : ndarray (N, N)
+            The kernel matrix representing the similarities
+            between individual elements.
+        destination : string, optional
+            If given the kernel matrix will be written
+            to the specified location.
+        header : string, optional
+            If given the specified header will be added
+            to the file that stores the kernel matrix.
+
+        Returns:
+        --------
+        D : ndarray (N, N)
+            The distance matrix between individual elements.
+        """
+        dim = len(C)
+        D = np.zeros(C.shape)
+
+        # fill the lower triangle (without the diagonal)
+        for i in range(1, dim):
+            for j in range(i):
+                D[i, j] = self.calc_distance_element(C[i, i], C[j, j], C[i, j])
+                print(D[i, j])
+
+        # Construct the full (symmetric) distance matrix
+        # Diagonal elements are zero
+        D = D + D.T
+
+        # save matrix
+        if destination:
+            np.savetxt(destination, D, header=header)
+
+        return D
+
+    def calc_distance_element(self, K_ii, K_jj, K_ij):
+        "Distance is calculated as self-similarities minus cross-similarity."
+        return np.sqrt(K_ii+K_jj - 2*K_ij)
 
