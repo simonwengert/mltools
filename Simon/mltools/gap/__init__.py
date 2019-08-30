@@ -1,4 +1,5 @@
 from __future__ import print_function
+import sys
 import os
 import copy
 import subprocess
@@ -16,8 +17,9 @@ from mpl_toolkits.mplot3d import Axes3D
 import time
 
 import ase.io
-import quippy.atoms
 import quippy.descriptors
+if sys.version_info[0] == 3:
+    import quippy.convert
 
 import mltools.misc
 
@@ -1112,19 +1114,25 @@ class Gap(object):
         """
         descs = []  # storage for descriptors
 
-        tmp_dir = tempfile.mkdtemp()
+        tmp_dir = tempfile.mkdtemp()  # python 2
         for idx, atoms in enumerate(getattr(self, 'atoms_'+set_id)):
-            path = os.path.join(tmp_dir, 'atoms.xyz')
-            ase.io.write(path, atoms)
-            q_atoms = quippy.Atoms(path)
+            # python 2/3
+            if sys.version_info[0] == 2:
+                path = os.path.join(tmp_dir, 'atoms.xyz')
+                ase.io.write(path, atoms)
+                q_atoms = quippy.Atoms(path)
+            elif sys.version_info[0] == 3:
+                q_atoms = quippy.convert.ase_to_quip(atoms)
 
             desc = quippy.descriptors.Descriptor(desc_str)
             q_atoms.set_cutoff(desc.cutoff())
             q_atoms.calc_connect()
 
-            descs.append(desc.calc(q_atoms)['descriptor'])  # calc. descriptor and append to store
-
-            os.remove(path+'.idx')  # in order to re-use same atoms.xyz file, we need to remove the *.idx file
+            if sys.version_info[0] == 2:
+                descs.append(desc.calc(q_atoms)['descriptor'])  # calc. descriptor and append to store
+                os.remove(path+'.idx')  # in order to re-use same atoms.xyz file, we need to remove the *.idx file
+            elif sys.version_info[0] == 3:
+                descs.append(desc.calc_descriptor(q_atoms))  # calc. descriptor and append to store
 
         shutil.rmtree(tmp_dir)
         return descs

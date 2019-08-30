@@ -1,5 +1,6 @@
 # #!/usr/bin/env python
 import unittest
+import sys
 import os
 import tempfile
 import shutil
@@ -21,14 +22,16 @@ class TestParser(unittest.TestCase):
         os.chdir(self.tmpdir)
 
     def test__build_assign_str(self):
+        # Sorting for python2/3 compatibility
         items = {'key_0' : 'val_0',
                  'key_1' : 1,
                  'key_2' : 1.1,
                  'key_3' : False}
-        ref_str = 'key_1=1 key_0=val_0 key_3=False key_2=1.1'
+        ref_str_sorted = 'key_0=val_0 key_1=1 key_2=1.1 key_3=False'
 
         gap = mltools.gap.Gap()
-        self.assertEqual(gap._build_assign_str(items), ref_str)
+        str_sorted = ' '.join(sorted(gap._build_assign_str(items).split(' ')))
+        self.assertEqual(str_sorted, ref_str_sorted)
 
     def test__build_potential_str(self):
         items = {'name' : 'descriptor',
@@ -172,22 +175,28 @@ class TestParser(unittest.TestCase):
         self.assertEqual(gap.cmd_gap_fit, ref_cmd_gap_fit)
 
     def test__build_cmd_quip(self):
-        ref_cmd_quip = '! quip key_1=val_1 key_0=val_0 | grep AT | sed \'s/AT//\''
+        # Sorting for python2/3 compatibility
+        ref_cmd_quip_sorted = '! quip key_0=val_0 key_1=val_1 | grep AT | sed \'s/AT//\''
         gap = mltools.gap.Gap()
         gap.params_quip = {'key_0' : 'val_0',
                            'key_1' : 'val_1'}
-        self.assertEqual(gap.cmd_quip, ref_cmd_quip)
+        cmd_quip = gap.cmd_quip
+        cmd_quip_prefix = ' '.join(cmd_quip.split(' ')[:2]) + ' '
+        cmd_quip_inner = ' '.join(sorted(cmd_quip.split(' ')[2:4]))
+        cmd_quip_suffix = ' ' + ' '.join(cmd_quip.split(' ')[4:])
+        cmd_quip_sorted = cmd_quip_prefix + cmd_quip_inner + cmd_quip_suffix
+        self.assertEqual(cmd_quip_sorted, ref_cmd_quip_sorted)
 
     def test__get_params_tuples(self):
         gap_fit_ranges = {'key_0' : [0, 1, 2], 'key_1' : [0.0, 0.1]}
         gaps_ranges = [{'key_2' : [2, 4, 6], 'key_3' : [0.2, 0.4]}, {'key_4' : [0.5, 1.0, 1.5]}]
 
         gap_fit_product = [{'key_0' : 0, 'key_1' : 0.0},
-                                {'key_0' : 0, 'key_1' : 0.1},
-                                {'key_0' : 1, 'key_1' : 0.0},
-                                {'key_0' : 1, 'key_1' : 0.1},
-                                {'key_0' : 2, 'key_1' : 0.0},
-                                {'key_0' : 2, 'key_1' : 0.1}]
+                           {'key_0' : 0, 'key_1' : 0.1},
+                           {'key_0' : 1, 'key_1' : 0.0},
+                           {'key_0' : 1, 'key_1' : 0.1},
+                           {'key_0' : 2, 'key_1' : 0.0},
+                           {'key_0' : 2, 'key_1' : 0.1}]
         gap_0_product = [{'key_2' : 2, 'key_3' : 0.2},
                          {'key_2' : 2, 'key_3' : 0.4},
                          {'key_2' : 4, 'key_3' : 0.2},
@@ -197,10 +206,36 @@ class TestParser(unittest.TestCase):
         gap_1_product = [{'key_4' : 0.5},
                          {'key_4' : 1.0},
                          {'key_4' : 1.5}]
-        ref_params_tuples = ito.product(*[gap_fit_product, gap_0_product, gap_1_product])
+        num_combs = len(gap_fit_product)*len(gap_0_product)*len(gap_1_product)
+
+        # python2/3 requires extensive sorting here since python3 dicts cannot be sorted
+        # turn each params_tuple into a string (since strings can be compared) while sorting at the same time
+        ref_compr_strs = []
+        for tuple_i in ito.product(*[gap_fit_product, gap_0_product, gap_1_product]):
+            ref_compr_str = ''
+            tuple_i_sorted = sorted(tuple_i, key=lambda x:sorted(x.keys()))
+            for dict_i in tuple_i_sorted:
+                ref_compr_str += ' '.join(['{} : {}'.format(key, val) for key, val in sorted(dict_i.items())])
+                ref_compr_str += ' '
+            ref_compr_strs.append(ref_compr_str[:-1])
 
         gap = mltools.gap.Gap()
-        self.assertEqual(sorted(gap._get_params_tuples(gap_fit_ranges, gaps_ranges)), sorted(ref_params_tuples))
+        compr_strs = []
+        for tuple_i in gap._get_params_tuples(gap_fit_ranges, gaps_ranges):
+            compr_str = ''
+            tuple_i_sorted = sorted(tuple_i, key=lambda x:sorted(x.keys()))
+            for dict_i in tuple_i_sorted:
+                compr_str += ' '.join(['{} : {}'.format(key, val) for key, val in sorted(dict_i.items())])
+                compr_str += ' '
+            compr_strs.append(compr_str[:-1])
+
+        # check for number of combinations for the parameter ranges
+        self.assertEqual(
+                len([params_tuple_i for params_tuple_i in gap._get_params_tuples(gap_fit_ranges, gaps_ranges)]),
+                num_combs)
+        # check the combinations explicitly
+        for compr_str, ref_compr_str in zip(sorted(compr_strs), sorted(ref_compr_strs)):
+            self.assertEqual(compr_str, ref_compr_str)
 
     def test__set_params_tuple_values(self):
         # `params_tuples` below would be build applying these setting:
@@ -258,11 +293,14 @@ class TestParser(unittest.TestCase):
             self.assertEqual(gap.gaps, gaps)
 
     def test__params_tuple_to_dir_name(self):
+        # Sorting for python2/3 compatibility
         params_tuple = [{'default_sigma' : [0.1, 0, 0, 0], 'key_0' : 0}, {'key_1' : 1}, {'key_2' : 2.0}]
-        ref_dir_name = 'default_sigma__1.00E-01_0.00E+00_0.00E+00_0.00E+00___key_0__0___key_1__1___key_2__2.0'
+        ref_dir_name_sorted = 'default_sigma__1.00E-01_0.00E+00_0.00E+00_0.00E+00___key_0__0___key_1__1___key_2__2.0'
 
         gap = mltools.gap.Gap()
-        self.assertEqual(gap._params_tuple_to_dir_name(params_tuple), ref_dir_name)
+        dir_name = gap._params_tuple_to_dir_name(params_tuple)
+        dir_name_sorted = '___'.join(sorted(dir_name.split('___')))
+        self.assertEqual(dir_name_sorted, ref_dir_name_sorted)
 
 
     def test__params_tuple_to_dataframe(self):
@@ -277,13 +315,18 @@ class TestParser(unittest.TestCase):
         df['gap_1_key_2'] = [2.0]
 
         gap = mltools.gap.Gap()
-        pd.testing.assert_frame_equal(gap._params_tuple_to_dataframe(params_tuple), df)
+        pd.testing.assert_frame_equal(gap._params_tuple_to_dataframe(params_tuple).sort_index(axis=1), df.sort_index(axis=1))
 
     def test_get_subsets_random_without_omnipresent(self):
         data = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
         num = 3
         seed = 42
-        ref_subsets = [['a', 'e', 'g'], ['b', 'f'], ['c', 'd']]
+
+        #python2/3; reason is random.sample()
+        if sys.version_info[0] == 2:
+            ref_subsets = [['a', 'e', 'g'], ['b', 'f'], ['c', 'd']]
+        elif sys.version_info[0] == 3:
+            ref_subsets = [['a', 'f', 'd'], ['b', 'g'], ['c', 'e']]
 
         gap = mltools.gap.Gap()
         self.assertEqual(gap.get_subsets_random(data, num, seed), ref_subsets)
@@ -293,7 +336,12 @@ class TestParser(unittest.TestCase):
         num = 3
         seed = 42
         omnipresent = ['x']
-        ref_subsets = [['x', 'a', 'e', 'g'], ['x', 'b', 'f'], ['x', 'c', 'd']]
+
+        #python2/3; reason is random.sample()
+        if sys.version_info[0] == 2:
+            ref_subsets = [['x', 'a', 'e', 'g'], ['x', 'b', 'f'], ['x', 'c', 'd']]
+        elif sys.version_info[0] == 3:
+            ref_subsets = [['x', 'a', 'f', 'd'], ['x', 'b', 'g'], ['x', 'c', 'e']]
 
         gap = mltools.gap.Gap()
         self.assertEqual(gap.get_subsets_random(data, num, seed, omnipresent), ref_subsets)
@@ -302,7 +350,12 @@ class TestParser(unittest.TestCase):
         init_set = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
         subset_size = 2
         seed = 42
-        ref_subset, ref_init_set_red = ['a', 'e'], ['b', 'c', 'd', 'f', 'g']
+
+        #python2/3; reason is random.sample()
+        if sys.version_info[0] == 2:
+            ref_subset, ref_init_set_red = ['a', 'e'], ['b', 'c', 'd', 'f', 'g']
+        elif sys.version_info[0] == 3:
+            ref_subset, ref_init_set_red = ['a', 'f'], ['b', 'c', 'd', 'e', 'g']
 
         gap = mltools.gap.Gap()
         self.assertEqual(gap.separate_random_uniform(init_set, subset_size, seed), (ref_subset, ref_init_set_red))
@@ -317,7 +370,11 @@ class TestParser(unittest.TestCase):
         outfile_quip = 'quip_out.xyz'
 
         ref_file_txt = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_grid.txt')
-        ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_grid.h5')
+        #python2/3
+        if sys.version_info[0] == 2:
+            ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_grid.python2.h5')
+        elif sys.version_info[0] == 3:
+            ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_grid.python3.h5')
 
         gap = mltools.gap.Gap()
         gap.eval_grid(gap_fit_ranges, gaps_ranges, key_true, key_pred, destination, job_dir, outfile_quip)
@@ -336,7 +393,11 @@ class TestParser(unittest.TestCase):
         outfile_quip = 'quip_out.xyz'
 
         ref_file_txt = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.txt')
-        ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.h5')
+        #python2/3
+        if sys.version_info[0] == 2:
+            ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.python2.h5')
+        elif sys.version_info[0] == 3:
+            ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.python3.h5')
 
         gap = mltools.gap.Gap()
         gap.eval_crossval(gap_fit_ranges, gaps_ranges, num, key_true, key_pred, destination, job_dir, outfile_quip)
@@ -345,7 +406,11 @@ class TestParser(unittest.TestCase):
         pd.testing.assert_frame_equal(pd.read_hdf('eval_crossval.h5'), pd.read_hdf(ref_file_h5))
 
     def test_get_crossval_mean(self):
-        file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.h5')
+        #python2/3
+        if sys.version_info[0] == 2:
+            file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.python2.h5')
+        elif sys.version_info[0] == 3:
+            file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.python3.h5')
         ref_means = [('default_sigma_energies', 0.10000000000000002), ('gap_0_key_0', 2.0)]
         df = pd.read_hdf(file_h5)
 
