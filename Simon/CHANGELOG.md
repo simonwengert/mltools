@@ -1,6 +1,15 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+# 0.3 -- 2019-08-30
+
+### Added
+- `calc_distance_matrix()` and `calc_distance_element()` methods.
+
+### Changed
+- python2/3 related parts to have compatibility for both version.
+
+
 # 0.2 -- 2019-08-20
 
 ### Added
