@@ -1,6 +1,12 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+# 0.4 -- 2019-09-10
+
+### Changed
+- `calc_kernel_matrix_soap` method is now parallelized.
+
+
 # 0.3 -- 2019-08-30
 
 ### Added
