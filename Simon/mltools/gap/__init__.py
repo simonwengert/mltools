@@ -1288,7 +1288,6 @@ class Gap(object):
         for i in range(1, dim):
             for j in range(i):
                 D[i, j] = self.calc_distance_element(C[i, i], C[j, j], C[i, j])
-                print(D[i, j])
 
         # Construct the full (symmetric) distance matrix
         # Diagonal elements are zero
