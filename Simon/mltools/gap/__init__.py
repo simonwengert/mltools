@@ -186,7 +186,7 @@ class Gap(object):
         """
         self._check_set_id(set_id)
         if append:
-            setattr(self, 'atoms_'+set_id, getattr(self, 'atoms_'+set_id) + ase.io.read(path, index=':'))
+            setattr(self, 'atoms_'+set_id, getattr(self, 'atoms_'+set_id, []) + ase.io.read(path, index=':'))
         else:
             setattr(self, 'atoms_'+set_id, ase.io.read(path, index=':'))
 
