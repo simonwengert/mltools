@@ -11,9 +11,17 @@ import scipy.optimize
 import random
 import pandas as pd
 import sklearn.metrics
-import matplotlib.pyplot as plt
-from matplotlib import cm
-from mpl_toolkits.mplot3d import Axes3D
+try:
+    # At some hosts python3-tk are not installed
+    # which would throw an error here.
+    # In this way (using try) an error is only
+    # thrown in case the module is called.
+    import matplotlib.pyplot as plt
+    from matplotlib import cm
+    from mpl_toolkits.mplot3d import Axes3D
+except ImportError as e:
+    print(e)
+    print('Couldn\'t load plotting packages. Corresponding functionalities will not be available!')
 import time
 import multiprocessing as mp
 
