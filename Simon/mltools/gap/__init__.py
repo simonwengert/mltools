@@ -246,7 +246,8 @@ class Gap(object):
         for atoms, energy_sigma in zip(self.atoms_train, energy_sigmas):
                 atoms.info['energy_sigma'] = energy_sigma
 
-    def assign_force_atom_sigma_proportion(self, proportion, zero_sigma=1E-5):
+    def assign_force_atom_sigma_proportion(self, proportion, arrays_key='force',
+                                           zero_sigma=1E-5, ll=-1, ul=-1, set_id='train'):
         """
         adds an array to each atoms obj to determine the
         force_atom_sigma
@@ -254,15 +255,33 @@ class Gap(object):
         Parameters:
         -----------
         proportion : float
-            This proportion of each atoms force norm will be used
-            as the corresonding ``force_sigma_atom`` value.
+            This proportion of the reference data (see ``arrays_key``)
+            will be used as the corresponding ``force_sigma_atom`` value.
+        arrays_key : str
+            Name of the key pointing to the reference values.
+            The norm of it will will be used for each individual atom.
         zero_sigma : float
             The ``force_atom_sigma`` value for atoms
             with vanishing force norm.
+        ll : float
+            Lower limit value. If a `force_atom_sigma` falls below `ll`
+            it will be set to `ll`.
+        ul : float
+            Upper limit value. If a `force_atom_sigma` exceeds `ul`
+            it will be set to `ul`.
+        set_id : string
+            Defines the geometry set that will used.
+            Must be one of the string stored in _set_ids.
         """
-        for atoms in self.atoms_train:
-            fas = proportion*np.linalg.norm(atoms.get_forces(), axis=1)  # force_atom_sigma
+        for atoms in getattr(self, 'atoms_' + set_id):
+            fas = proportion*np.linalg.norm(atoms.arrays[arrays_key], axis=1)  # force_atom_sigma
             fas[fas == 0] = zero_sigma
+
+            if ll != -1:
+                fas[fas < ll] = ll
+            if ul != -1:
+                fas[fas > ul] = ul
+
             atoms.set_array("force_atom_sigma", fas)
 
     # dumping parameters
