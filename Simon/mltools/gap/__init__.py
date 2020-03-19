@@ -2,7 +2,6 @@ from __future__ import print_function
 import sys
 import os
 import copy
-import subprocess
 import tempfile
 import shutil
 import itertools as ito
@@ -57,17 +56,16 @@ class Gap(object):
         self._binary_gap_fit = kwargs.pop('binary_gap_fit', '')  # allows submission to cluster
         self._binary_quip = kwargs.pop('binary_quip', '')  # allows submission to cluster
 
-
     # cmd_* cannot be changed by user directly
     @property
     def cmd_gap_fit(self):
-        "Update command string when called"
+        """Update command string when called"""
         self._build_cmd_gap_fit()
         return self._cmd_gap_fit
 
     @property
     def cmd_quip(self):
-        "Update command string when called"
+        """Update command string when called"""
         self._build_cmd_quip()
         return self._cmd_quip
 
@@ -90,7 +88,8 @@ class Gap(object):
 
     @property
     def errfile_gap_fit(self):
-        return self.outfile_gap_fit[:-4]+'.err' if self.outfile_gap_fit.endswith('.out') else self.outfile_gap_fit+'.err'
+        return self.outfile_gap_fit[:-4]+'.err' if self.outfile_gap_fit.endswith('.out') \
+            else self.outfile_gap_fit+'.err'
 
     # atoms
     @property
@@ -159,15 +158,16 @@ class Gap(object):
         self._params_quip = params
 
     # checks
-    def _check_key(self, items, key):
-        "Check if a (required) key is in a dictionary, e.g. ``name`` in ``self.params_gap_fit``"
-        if not key in items:
+    @staticmethod
+    def _check_key(items, key):
+        """Check if a (required) key is in a dictionary, e.g. ``name`` in ``self.params_gap_fit``"""
+        if key not in items:
             msg = 'Key \'{}\' not found.'.format(key)
             raise KeyError(msg)
 
     def _check_set_id(self, set_id):
-        "Check if ``set_id`` is part of ``self._set_ids``"
-        if not set_id in self._set_ids:
+        """Check if ``set_id`` is part of ``self._set_ids``"""
+        if set_id not in self._set_ids:
             msg = '\'set_id\' must be one of \'{}\''.format(' '.join(self._set_ids))
             raise ValueError(msg)
 
@@ -215,16 +215,18 @@ class Gap(object):
         ase.io.write(destination, getattr(self, 'atoms_'+set_id))
 
     def set_lattices(self, length, set_id):
-        "Purpose is to assign huge (cubic) cells to non-periodic systems in order to statisfy the fitting codes request for periodicity."
+        """Purpose is to assign huge (cubic) cells to non-periodic systems
+        in order to satisfy the fitting codes request for periodicity."""
         for atoms in getattr(self, 'atoms_'+set_id):
-            atoms.set_cell(np.diag([length]*3))
+            atoms.set_cell(np.diag([length] * 3))
 
-    def _calc_energy_sigmas_linear(self, ref_values, sigma_range):
-        "Map ``ref_values`` to a range within ``sigma_range`` in a linear fashion."
+    @staticmethod
+    def _calc_energy_sigmas_linear(ref_values, sigma_range):
+        """Map ``ref_values`` to a range within ``sigma_range`` in a linear fashion."""
         ref_values = np.asarray(ref_values)
         ref_min, ref_max = np.min(ref_values), np.max(ref_values)
-        slope = (sigma_range[1]-sigma_range[0]) / float(ref_max-ref_min)
-        return sigma_range[0] + slope*(ref_values-ref_min)
+        slope = (sigma_range[1] - sigma_range[0]) / float(ref_max - ref_min)
+        return sigma_range[0] + slope * (ref_values - ref_min)
 
     def assign_energy_sigma_linear(self, ref_values, sigma_range):
         """
@@ -237,15 +239,15 @@ class Gap(object):
             assigned to the atoms in self.atoms_train.
             thus, needs to have same length as self.atoms_train.
         sigma_range: ndarray or list
-            Stores the minimum and maximum value of the sesired
-            energy_sigma's.
+            Stores the minimum and maximum value of the desired
+            energy_sigmas.
         """
         if not len(self.atoms_train) == len(ref_values):
             raise ValueError('Dimension mismatch: requested atoms set and ``ref_values`` must have same dimension')
 
         energy_sigmas = self._calc_energy_sigmas_linear(ref_values, sigma_range)
         for atoms, energy_sigma in zip(self.atoms_train, energy_sigmas):
-                atoms.info['energy_sigma'] = energy_sigma
+            atoms.info['energy_sigma'] = energy_sigma
 
     def assign_force_atom_sigma_proportion(self, proportion, arrays_key='force',
                                            zero_sigma=1E-5, ll=-1, ul=-1, set_id='train'):
@@ -286,12 +288,13 @@ class Gap(object):
             atoms.set_array("force_atom_sigma", fas)
 
     # dumping parameters
-    def _dict_to_string(self, items):
+    @staticmethod
+    def _dict_to_string(items):
         keys = sorted(items)
         return 'dict(' + ',\n     '.join('{0} = {1}'.format(key, items[key]) for key in keys) + ')\n'
 
     def write_gap_fit_parameters(self):
-        "Write gap_fit-parameters and gap-parameters to file."
+        """Write gap_fit-parameters and gap-parameters to file."""
         with open(os.path.join(self.job_dir, 'gap_fit.params'), 'w') as o_file:
             o_file.write('# params_gap_fit\n')
             o_file.write(self._dict_to_string(self.params_gap_fit))
@@ -302,14 +305,14 @@ class Gap(object):
                 o_file.write(self._dict_to_string(gap))
 
     def write_quip_parameters(self):
-        "Write quip-parameters to file."
+        """Write quip-parameters to file."""
         with open(os.path.join(self.job_dir, 'quip.params'), 'a') as o_file:
             o_file.write('# params_quip\n')
             o_file.write(self._dict_to_string(self.params_quip))
 
     # command handling
     def _build_cmd_gap_fit(self):
-        "Builds the gap_fit command-line string"
+        """Builds the gap_fit command-line string"""
         items_copy = copy.deepcopy(self._params_gap_fit)  # avoid changes in self.params_gap_fit
         cmd_str = '! gap_fit ' if not self._binary_gap_fit else self._binary_gap_fit+' '
         cmd_str += 'default_sigma={' + ' '.join([str(df) for df in items_copy.pop('default_sigma')]) + '}'
@@ -319,25 +322,26 @@ class Gap(object):
         cmd_str += self._build_gap_str()
         self._cmd_gap_fit = cmd_str
 
-    def _build_assign_str(self, items):
-        "Turns dictionary to a string of the form 'key=val' concatenating the items by a whitespace"
+    @staticmethod
+    def _build_assign_str(items):
+        """Turns dictionary to a string of the form 'key=val' concatenating the items by a whitespace"""
         assign_str = ''
         for key, value in items.items():
-            if isinstance(value, (int, float)) and not isinstance(value, bool): # account for int represented in scientific notation
-                assign_str += '{}={:g} '.format(key, value)
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                assign_str += '{}={:g} '.format(key, value)  # account for int represented in scientific notation
             else:
                 assign_str += '{}={} '.format(key, value)
         return assign_str[:-1]
 
     def _build_gap_str(self):
-        "Builds the gap-related part of the gap_fit command-line string"
+        """Builds the gap-related part of the gap_fit command-line string"""
         cmd_str = 'gap={'
         cmd_str += ' :'.join([self._build_potential_str(gap) for gap in self.gaps])
         cmd_str += '}'
         return cmd_str
 
     def _build_potential_str(self, items):
-        "Build the command-line string for a single descriptor within the gap-related part of gap_fit"
+        """Build the command-line string for a single descriptor within the gap-related part of gap_fit"""
         items_copy = copy.deepcopy(items)  # avoid changes in self.gaps
         pot_str = items_copy.pop('name')
         pot_str += ' '
@@ -345,7 +349,7 @@ class Gap(object):
         return pot_str
 
     def _build_cmd_quip(self):
-        "Builds the quip command-line string"
+        """Builds the quip command-line string"""
         cmd_str = '! quip ' if not self._binary_quip else self._binary_quip+' '
         cmd_str += self._build_assign_str(self._params_quip)
         cmd_str += ' | grep AT | sed \'s/AT//\''
@@ -378,11 +382,12 @@ class Gap(object):
         os.chdir(self.job_dir)
         print(self.cmd_gap_fit)
         if not try_run:
-            os.system('{command} 1>{stdout} 2>{stderr}'.format(command=self.cmd_gap_fit, stdout=self.outfile_gap_fit, stderr=self.errfile_gap_fit))
+            os.system('{command} 1>{stdout} 2>{stderr}'.format(
+                command=self.cmd_gap_fit, stdout=self.outfile_gap_fit, stderr=self.errfile_gap_fit))
         os.chdir(cwd)
 
         # NOTE: Would be more clean to have it via Popen, but Popen cannot handle this rather complex expression
-        # process = subprocess.Popen(self._cmd_gap_fit.split(), stdout=subprocess.PIPE)  # stdout to file, stderr to screen
+        # process = subprocess.Popen(self._cmd_gap_fit.split(), stdout=subprocess.PIPE)  # *out to file, *err to screen
         # while True:
         #     with open(os.path.join(self.job_dir, self.outfile_gap_fit), 'a') as o_file:
         #         out = process.stdout.read(1)
@@ -424,10 +429,12 @@ class Gap(object):
         os.chdir(self.job_dir)
         print(self.cmd_quip)
         if not try_run:
-            os.system('{command} 1>{stdout} 2>{stderr}'.format(command=self.cmd_quip, stdout=outfile_quip, stderr=errfile_quip))
+            os.system('{command} 1>{stdout} 2>{stderr}'.format(
+                command=self.cmd_quip, stdout=outfile_quip, stderr=errfile_quip))
         os.chdir(cwd)
 
-    def _make_dirs(self, dirs):
+    @staticmethod
+    def _make_dirs(dirs):
         if not os.path.exists(dirs):
             os.makedirs(dirs)
 
@@ -537,14 +544,15 @@ class Gap(object):
             return [dict(zip(items.keys(), values)) for values in ito.product(*items.values())]
 
     def _get_params_tuples(self, gap_fit_ranges, gaps_ranges):
-        "Turn value ranges for the arguments keys into tuples of the form (<gap_fit-settings>, <gap_0-settings>, ...)"
+        """Turn value ranges for the arguments keys into tuples
+        of the form (<gap_fit-settings>, <gap_0-settings>, ...)"""
         gap_fit_products = self._dict_cartesian_product(gap_fit_ranges)
         gaps_products = [self._dict_cartesian_product(gap_ranges) for gap_ranges in gaps_ranges]
         grid_dimensions = [gap_fit_products] + gaps_products
         return ito.product(*grid_dimensions)
 
     def _set_params_tuple_values(self, params_tuple):
-        "Apply definitions in `params_tuple` to `self.params_gap_fit` and `self.gaps`"
+        """Apply definitions in `params_tuple` to `self.params_gap_fit` and `self.gaps`"""
         for key, value in params_tuple[0].items():
             self.params_gap_fit[key] = value
 
@@ -552,8 +560,10 @@ class Gap(object):
             for key, value in gap_ranges.items():
                 self.gaps[gap_idx][key] = value
 
-    def _params_tuple_to_dir_name(self, params_tuple):
-        "Turn `params_tuple` into a string with a key-value pair separated by 2*'_' individual key-value pairs by 3*'_'"
+    @staticmethod
+    def _params_tuple_to_dir_name(params_tuple):
+        """Turn `params_tuple` into a string with a key-value pair
+        separated by 2 * '_' individual key-value pairs by 3*'_'"""
         dir_name = ''
 
         for key, value in params_tuple[0].items():
@@ -568,8 +578,9 @@ class Gap(object):
 
         return dir_name[3:]
 
-    def _params_tuple_to_dataframe(self, params_tuple):
-        "Turn `params_tuple` into a DataFrame with each key labeling a column and the row storing the values."
+    @staticmethod
+    def _params_tuple_to_dataframe(params_tuple):
+        """Turn `params_tuple` into a DataFrame with each key labeling a column and the row storing the values."""
         df = pd.DataFrame()
 
         for key, value in params_tuple[0].items():
@@ -705,7 +716,8 @@ class Gap(object):
             subsets[idx].append(data[idx])
         return subsets
 
-    def separate_random_uniform(self, init_set, subset_size, seed):
+    @staticmethod
+    def separate_random_uniform(init_set, subset_size, seed):
         """
         Separates a list into two by selecting entries in a random-uniform manner.
 
@@ -905,8 +917,9 @@ class Gap(object):
 
         return results
 
-    def get_rmse(self, y_true, y_pred):
-        "Return the RMSE value corresonding to the two data-sets."
+    @staticmethod
+    def get_rmse(y_true, y_pred):
+        """Return the RMSE value corresponding to the two data-sets."""
         return np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred))
 
     def write_dataframe(self, df, destination):
@@ -947,8 +960,9 @@ class Gap(object):
             else:
                 raise ValueError('Accepted file-extensions are \'.txt\', \'.h5\' or \'.both\'')
 
-    def read_dataframe(self, source):
-        "Read in a DataFrame stored in a file with HDF5 format and return it."
+    @staticmethod
+    def read_dataframe(source):
+        """Read in a DataFrame stored in a file with HDF5 format and return it."""
         return pd.read_hdf(source, 'df')
 
     def get_grid_hyparams(self, df, **kwargs):
@@ -1189,24 +1203,28 @@ class Gap(object):
             else:
                 plt.scatter(y_true, y_pred)
                 plt.text(0.15, 0.95,
-                         s = label,
-                         fontsize = 12,
-                         ha = 'center', va = 'center',
-                         transform = ax.transAxes)
+                         s=label,
+                         fontsize=12,
+                         ha='center', va='center',
+                         transform=ax.transAxes)
         plt.show()
 
-    def run_local_optimization(self, init_params_gap_fit, init_gaps, key_true, key_pred, method='l-bfgs-b', options={}, del_gp_file=True):
+    def run_local_optimization(self, init_params_gap_fit, init_gaps, key_true, key_pred, method='l-bfgs-b', options={},
+                               del_gp_file=True):
         # l-bfgs-b since allows for boundary conditions
         # NOTE: this method is currently in an alpha-state
-        # TODO: key_true/key_pred works only for energies (or one single scalar) so far, not for a loss function with E, F, ... contributions, nor for forces alone
+        # TODO: key_true/key_pred works only for energies (or one single scalar) so far,
+        #  not for a loss function with E, F, ... contributions, nor for forces alone
         if not isinstance(init_gaps, list):
             init_gaps = [init_gaps]
 
         bak_params_gap_fit = self.params_gap_fit
         bak_gaps = self.gaps
 
-        decoder, hyperparams, bounds = self._init_to_hyper(init_params_gap_fit, init_gaps)  # optimization function requires a single array as input
-        opt = scipy.optimize.minimize(self._run_local_optimization, hyperparams, bounds=bounds, args=(decoder, key_true, key_pred), method=method, options=options)
+        # optimization function requires a single array as input
+        decoder, hyperparams, bounds = self._init_to_hyper(init_params_gap_fit, init_gaps)
+        opt = scipy.optimize.minimize(self._run_local_optimization, hyperparams,
+                                      bounds=bounds, args=(decoder, key_true, key_pred), method=method, options=options)
         opt_params_gap_fit, opt_gaps = self._hyper_decode(opt.x, decoder)
 
         self.params_gap_fit = bak_params_gap_fit
@@ -1235,7 +1253,8 @@ class Gap(object):
 
         return rmse
 
-    def _init_to_hyper(self, init_params_gap_fit, init_gaps):
+    @staticmethod
+    def _init_to_hyper(init_params_gap_fit, init_gaps):
         keys, vals, bounds = [], [], []
 
         for key, (val, boundaries) in sorted(init_params_gap_fit.items()):
@@ -1251,12 +1270,12 @@ class Gap(object):
         return keys, np.array(vals),  bounds
 
     def set_hyper_values(self, hyperparams, keys):
-        "Apply hyperparameters to `self.params_gap_fit` and `self.gaps`"
+        """Apply hyperparameters to `self.params_gap_fit` and `self.gaps`"""
         # TODO:
         #   - TST
         prefix_gap_fit = 'gap_fit_'
         prefix_gaps = 'gap_'
-        ds_mapping = {'energies' : 0, 'forces' : 1, 'virials' : 2, 'hessians' : 3}
+        ds_mapping = {'energies': 0, 'forces': 1, 'virials': 2, 'hessians': 3}
 
         for idx, (key, val) in enumerate(zip(keys, hyperparams)):
             if key.startswith(prefix_gap_fit):
@@ -1269,14 +1288,15 @@ class Gap(object):
                 gap_idx, _key = key.split('_', 2)[1:]
                 self.gaps[int(gap_idx)][_key] = val
 
-    def _hyper_decode(self, hyperparams, keys):
+    @staticmethod
+    def _hyper_decode(hyperparams, keys):
         # TODO
         prefix_gap_fit = 'gap_fit_'
         prefix_gaps = 'gap_'
 
         params_gap_fit = {}
         num_gaps = len(np.unique(['_'.join(key.split('_', 2)[:2]) for key in keys if key.startswith(prefix_gaps)]))
-        gaps = [{} for gap in range(num_gaps)]
+        gaps = [{} for _ in range(num_gaps)]
 
         for idx, (key, val) in enumerate(zip(keys, hyperparams)):
             if key.startswith(prefix_gap_fit):
@@ -1413,7 +1433,7 @@ class Gap(object):
         return C_ij
 
     def _calc_average_kernel_soap_wo_C_AA_normalization(self, desc_A, desc_B, zeta, local_kernel=np.dot):
-        "Calculate the average kernel between two molecules/descriptors without (complete) normalization."
+        """Calculate the average kernel between two molecules/descriptors without (complete) normalization."""
         C_ABs = []
         n_A = len(desc_A)
         n_B = len(desc_B)
@@ -1479,7 +1499,7 @@ class Gap(object):
                                                                         zeta=zeta, local_kernel=local_kernel)
             C_AAs.append(C_AA)
 
-            if verbose and (idx_A+1)%10 == 0 or (idx_A+1) == num:
+            if verbose and (idx_A+1) % 10 == 0 or (idx_A + 1) == num:
                 msg = '{0} Kernel element (diagonal) :     {1}/{2} (for normalization)'.format(
                     str(datetime.datetime.now()), idx_A+1, num)
                 print(msg)
@@ -1515,7 +1535,7 @@ class Gap(object):
                     # NOTE: seems like join is not necessary and even makes the processes dying.
                     #       Tested it without join and found identical results as without any parallelization
 
-                    row_i_C_ijs = [mp_out.get() for p in processes]
+                    row_i_C_ijs = [mp_out.get() for _ in processes]
                     for row_i, C_ijs in row_i_C_ijs:
                         C[row_i, :row_i] = C_ijs
 
