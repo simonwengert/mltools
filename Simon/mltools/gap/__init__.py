@@ -824,9 +824,11 @@ class Gap(object):
 
         return results
 
-    def eval_crossval(self, gap_fit_ranges, gaps_ranges, num, key_true, key_pred, destination='', job_dir='', outfile_quip=''):
+    def eval_crossval(self, gap_fit_ranges, gaps_ranges, num, key_true, key_pred, info_or_arrays='info', destination='',
+                      job_dir='', outfile_quip=''):
         """
-        Extract metrics for the prediction-errors and the corresonding parameters of the models sampled during Cross-validation.
+        Extract metrics for the prediction-errors and the corresponding parameters of the models
+        sampled during Cross-validation.
 
         Parameters:
         -----------
@@ -844,6 +846,8 @@ class Gap(object):
             Identifier for the reference value within an ase-object.
         key_pred : string
             Identifier for the prediction value within an ase-object.
+        info_or_arrays : string
+            Are the values stored in ase-object's `info`- or `arrays`-dict.
         destination : string, optional
             Location of file the extracted data will be written to.
             If not specified no file will be written.
@@ -873,7 +877,7 @@ class Gap(object):
             Each row has an additional index-level specifying
             to which subset the model belongs.
         """
-        # try to assign defaults if arguments have not been specified explicitely
+        # try to assign defaults if arguments have not been specified explicitly
         job_dir = job_dir if job_dir else self.job_dir
 
         results_frames = []  # stores DataFrames to be merged in the end
@@ -883,12 +887,13 @@ class Gap(object):
             job_dir_sub = str(idx)+'_crossval'
             results_frames.append(
                     self.eval_grid(
-                        gap_fit_ranges = gap_fit_ranges,
-                        gaps_ranges = gaps_ranges,
-                        key_true = key_true,
-                        key_pred = key_pred,
-                        job_dir = os.path.join(job_dir, job_dir_sub),
-                        outfile_quip = outfile_quip)
+                        gap_fit_ranges=gap_fit_ranges,
+                        gaps_ranges=gaps_ranges,
+                        key_true=key_true,
+                        key_pred=key_pred,
+                        info_or_arrays=info_or_arrays,
+                        job_dir=os.path.join(job_dir, job_dir_sub),
+                        outfile_quip=outfile_quip)
                     )
             keys.append(job_dir_sub)
 
