@@ -1063,13 +1063,36 @@ class Gap(object):
         # (x is e.g. the energetic default_sigma for which large values are desired for good generalization)
         vals_in_tol_max_x_RMSE = vals_in_tol_RMSE[vals_in_tol_x == vals_in_tol_x.max()]
 
-    def view_crossval(self, df, log=[]):
-        "Create plots for hypersurface of each subset and print some info."
-        x_val_mins, y_val_mins = [], []  # used to get the mean values over the subsets
+        # select the x-y-z combination with the minimum RMSE
+        return vals_in_tol_max_x_RMSE.idxmin()
 
-        for level in np.unique(df.index.get_level_values(0)):
+    @staticmethod
+    def _idxmin_RMSE_min_x_max_y_min(df, x, y, tolerance_RMSE, tolerance_x):
+        """Return the dataframe's row-index with the lowest RMSE (within a tolerance) while maximizing `x`."""
+        # extract data
+        vals_RMSE = df['RMSE']
+        vals_x = df[x]
+        vals_y = df[y]
 
-            df_sub = df.loc[level]
+        val_RMSE_max = vals_RMSE.min() * tolerance_RMSE  # upper limit for permitted z-values
+
+        # filter x-y-z combinations with z-values within tolerance
+        vals_in_tol_x = vals_x[vals_RMSE <= val_RMSE_max]
+        vals_in_tol_y = vals_y[vals_RMSE <= val_RMSE_max]
+        vals_in_tol_RMSE = vals_RMSE[vals_RMSE <= val_RMSE_max]
+
+        # filter x-y-z combinations with x-values within tolerance
+        # (x is e.g. the energetic default_sigma for which large values are desired for good generalization)
+        vals_in_tol_max_x_y = vals_in_tol_y[vals_in_tol_x >= vals_in_tol_x.max() * (1 - tolerance_x)]
+        vals_in_tol_max_x_RMSE = vals_in_tol_RMSE[vals_in_tol_x >= vals_in_tol_x.max() * (1 - tolerance_x)]
+
+        # select the x-y-z combinations with maximum x-value within tolerance and minimium y-value
+        # (there are multiple possibilities containing that y-value)
+        # (y is e.g. the force default_sigma for which small values can be desired for good generalization)
+        vals_in_tol_max_x_min_y_RMSE = vals_in_tol_max_x_RMSE[vals_in_tol_max_x_y == vals_in_tol_max_x_y.min()]
+
+        # select the x-y-z combination with the minimum RMSE
+        return vals_in_tol_max_x_min_y_RMSE.idxmin()
 
             # extract data
             z_vals = df_sub.pop('RMSE')
