@@ -1286,7 +1286,7 @@ class Gap(object):
         return params_gap_fit, gaps
 
     @staticmethod
-    def find_farthest(self, dist_matrix, seeds, number):
+    def find_farthest(dist_matrix, seeds, number):
         """
         Find samples farthest apart from each other based on its distance matrix.
 
