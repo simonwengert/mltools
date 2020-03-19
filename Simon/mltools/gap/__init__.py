@@ -1285,6 +1285,7 @@ class Gap(object):
                 gaps[int(gap_idx)][_key] = val
         return params_gap_fit, gaps
 
+    @staticmethod
     def find_farthest(self, dist_matrix, seeds, number):
         """
         Find samples farthest apart from each other based on its distance matrix.
@@ -1307,8 +1308,7 @@ class Gap(object):
         if isinstance(seeds, int):
             israise = True if number <= 1 else False
 
-            samples = [seeds]  # storage for farthest samples
-            samples.append(np.argmax(dist_matrix[seeds]))  # find farthest from input sample
+            samples = [seeds, np.argmax(dist_matrix[seeds])]  # storage for farthest samples (init. with two farthest)
 
         elif isinstance(seeds, (list, np.ndarray)):
             israise = True if number <= len(seeds) else False
@@ -1318,12 +1318,12 @@ class Gap(object):
         if israise:
             raise ValueError('`number` can not be smaller than specified in `seeds`')
 
-        for idx in range(number-len(samples)):
+        for idx in range(number - len(samples)):
             samples_rem = np.delete(np.arange(len(dist_matrix)), samples)  # get indices of not selected samples
 
             dists = dist_matrix[samples][:, samples_rem]  # slice distances for selected samples to remaining samples
 
-            dists_min = np.min(dists, axis=0)  # for each remaining sample find closest distance to already selected sample
+            dists_min = np.min(dists, axis=0)  # for each remaining sample find closest distance to already selected
             sample_farthest = np.argmax(dists_min)  # select the remaining sample farthest to all selected samples
 
             samples.append(samples_rem[sample_farthest])
