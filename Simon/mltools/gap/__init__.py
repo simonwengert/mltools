@@ -584,7 +584,9 @@ class Gap(object):
 
         return df
 
-    def run_crossval(self, gap_fit_ranges, gaps_ranges, subsets, del_gp_file=True, try_run=False, omnipresent=[]):
+    def run_crossval(self, gap_fit_ranges, gaps_ranges, subsets, add_run_quip=None, add_atoms_filename=None,
+                     del_gp_file=True, try_run=False, omnipresent=None, run_only_subsets=None, del_at_file=False,
+                     del_atoms_filename=False):
         """
         Perform a Cross-validation creating training-set and validation-set based on the provided data-sets.
         Note: `self.atoms_train` and `self.atoms_validate` will be set to `None` after the Cross-validation.
@@ -600,6 +602,11 @@ class Gap(object):
         subsets: list
             Stores lists of ase-atoms objects with each of the inner lists
             representing a subset used for the Cross-validation.
+        add_run_quip : list (N)
+            List of lists with each sub-list containing atoms-objects.
+        add_atoms_filename : list (N)
+            List of filenames corresponding to the N entries of ``add_run_quip``.
+            Will be used to update self.params_quip['atoms_filename'] accordingly.
         del_gp_file : boolean
             Allows to remove the (sometimes rather large) ``gp_file``.
         try_run : boolean
@@ -607,23 +614,52 @@ class Gap(object):
         omnipresent : list or ase-atoms object
             Stores atoms-objects to be present in each
             of the subsets.
+        run_only_subset : list or int
+            If defined, runs are only performed on subsets with the specified indices/index.
+        del_at_file: boolean
+            Allows to remove the large number of ``at_file`` xyz-files.
+        del_atoms_filename: boolean
+            Allows to remove the large number of ``atoms_filename`` xyz-files.
         """
+        # TODO:
+        #   - TST for add_* and del_*
+
+        # since there is no easy way to do the assignment---without using mutable argument values---we do it explicitly
+        if add_run_quip is None:
+            add_run_quip = []
+        if add_atoms_filename is None:
+            add_atoms_filename = []
+        if omnipresent is None:
+            omnipresent = []
+
         # convert to list
         omnipresent = [omnipresent] if not isinstance(omnipresent, list) else omnipresent
+        if run_only_subsets is None:
+            run_only_subsets = range(len(subsets))
+        elif isinstance(run_only_subsets, int):
+            run_only_subsets = [run_only_subsets]
 
         bak_job_dir = self.job_dir  # store attribute and reset later again to that value
 
         for idx in range(len(subsets)):
-            # assign validation- and training-sets
-            subsets_copy = copy.deepcopy(subsets)
-            self.atoms_validate = subsets_copy.pop(idx) + omnipresent  # one subset for validatoin
-            self.atoms_train = list(ito.chain(*subsets_copy)) + omnipresent  # the remaining subsets for training
+            if idx in run_only_subsets:
+                # assign validation- and training-sets
+                subsets_copy = copy.deepcopy(subsets)
+                self.atoms_validate = subsets_copy.pop(idx) + omnipresent  # one subset for validation
+                self.atoms_train = list(ito.chain(*subsets_copy)) + omnipresent  # the remaining subsets for training
 
-            # each sub-validation of the Cross-validation gets its one directory
-            self.job_dir = os.path.join(bak_job_dir, str(idx)+'_crossval')
+                # each sub-validation of the Cross-validation gets its one directory
+                self.job_dir = os.path.join(bak_job_dir, str(idx)+'_crossval')
 
-            # perform the grid search for hyperparameters
-            self.run_sample_grid(gap_fit_ranges, gaps_ranges, del_gp_file, try_run)
+                # perform the grid search for hyperparameters
+                self.run_sample_grid(gap_fit_ranges=gap_fit_ranges,
+                                     gaps_ranges=gaps_ranges,
+                                     add_run_quip=add_run_quip,
+                                     add_atoms_filename=add_atoms_filename,
+                                     del_gp_file=del_gp_file,
+                                     try_run=try_run,
+                                     del_at_file=del_at_file,
+                                     del_atoms_filename=del_atoms_filename)
 
         # set attributes to defined values
         self.job_dir = bak_job_dir
