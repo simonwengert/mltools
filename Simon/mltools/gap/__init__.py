@@ -430,7 +430,8 @@ class Gap(object):
         if not os.path.exists(dirs):
             os.makedirs(dirs)
 
-    def run_sample_grid(self, gap_fit_ranges, gaps_ranges, del_gp_file=True, try_run=False):
+    def run_sample_grid(self, gap_fit_ranges, gaps_ranges, add_run_quip=None, add_atoms_filename=None, del_gp_file=True,
+                        try_run=False, del_at_file=False, del_atoms_filename=False):
         """
         Learn and validate gap-potentials on a grid of parameters.
 
@@ -442,29 +443,88 @@ class Gap(object):
             List of dictionaries (or a single dictionary in case
             only a single gap-potential is used).
             Each dictionary stores the keys and the range of values to be sampled.
+        add_run_quip : list (N)
+            List of lists with each sub-list containing atoms-objects.
+        add_atoms_filename : list (N)
+            List of filenames corresponding to the N entries of ``add_run_quip``.
+            Will be used to update self.params_quip['atoms_filename'] accordingly.
         del_gp_file : boolean
             Allows to remove the (sometimes rather large) ``gp_file``.
         try_run : boolean
             Run in test-mode.
+        del_at_file: boolean
+            Allows to remove the large number of ``at_file`` xyz-files.
+        del_atoms_filename: boolean
+            Allows to remove the large number of ``atoms_filename`` xyz-files.
         """
+        # TODO:
+        #   - TST for add_*
 
         if not isinstance(gaps_ranges, list):
             gaps_ranges = [gaps_ranges]
         if not len(gaps_ranges) == len(self.gaps):
             raise ValueError('``gaps_ranges`` must have same length as ``self.gaps``')
 
+        if add_run_quip is None:
+            add_run_quip = []
+        if add_atoms_filename is None:
+            add_atoms_filename = []
+
         _job_dir = self.job_dir  # used to reset it later again to that value
 
         for params_tuple in self._get_params_tuples(gap_fit_ranges, gaps_ranges):
             self._set_params_tuple_values(params_tuple)
             self.job_dir = os.path.join(_job_dir, self._params_tuple_to_dir_name(params_tuple))
+
+            # skip already completed grid-points
+            if self._is_gap_fit_out_completed(os.path.join(self.job_dir, 'gap_fit.out'), del_parent_dir=True):
+                print('Already completed: {}'.format(self.job_dir))
+                continue
+
             self.run_gap_fit(try_run)
             self.run_quip('validate', try_run)
+
+            # apply GAP on additional systems
+            for atoms, atoms_filename in zip(add_run_quip, add_atoms_filename):
+                _atoms_filename = self.params_quip['atoms_filename']
+                self.params_quip['atoms_filename'] = atoms_filename
+
+                self.atoms_other = atoms
+                self.run_quip('other', try_run)
+
+                self.params_quip['atoms_filename'] = _atoms_filename
+            self.atoms_other = None
+
             if del_gp_file:
                 [os.remove(os.path.join(self.job_dir, n_file)) for n_file in os.listdir(self.job_dir)
                  if self.params_gap_fit['gp_file'] in n_file]
 
+            if del_at_file:
+                os.remove(os.path.join(self.job_dir, self.params_gap_fit['at_file']))
+
+            if del_atoms_filename:
+                [os.remove(os.path.join(self.job_dir, n_file))
+                 for n_file in [self.params_quip['atoms_filename']] + add_atoms_filename]
+
+            # *.idx can always be removed
+            [os.remove(os.path.join(self.job_dir, n_file)) for n_file in os.listdir(self.job_dir)
+             if n_file.endswith('.idx')]
+
         self.job_dir = _job_dir
+
+    def _is_gap_fit_out_completed(self, path_to_gap_fit_out, del_parent_dir=False):
+        """Returns True if gap_fit-output-file confirms a completed run else False (and optionally remove parent-dir."""
+        if not os.path.exists(path_to_gap_fit_out):
+            return False
+        else:
+            with open(path_to_gap_fit_out, 'r') as o_file:
+                last_line = o_file.readlines()[-1]
+            if 'Bye-Bye!' in last_line:
+                return True
+            else:
+                if del_parent_dir:
+                    shutil.rmtree(os.path.dirname(path_to_gap_fit_out))
+                return False
 
     def _dict_cartesian_product(self, items):
         "Returns the cartesian product of the values' ranges in terms of individual dictionaries."
