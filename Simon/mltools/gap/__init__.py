@@ -527,9 +527,13 @@ class Gap(object):
                     shutil.rmtree(os.path.dirname(path_to_gap_fit_out))
                 return False
 
-    def _dict_cartesian_product(self, items):
-        "Returns the cartesian product of the values' ranges in terms of individual dictionaries."
-        return [dict(zip(items.keys(), values)) for values in ito.product(*items.values())]
+    @staticmethod
+    def _dict_cartesian_product(items):
+        """Returns the cartesian product of the values' ranges in terms of individual dictionaries."""
+        if not items:
+            return []
+        else:
+            return [dict(zip(items.keys(), values)) for values in ito.product(*items.values())]
 
     def _get_params_tuples(self, gap_fit_ranges, gaps_ranges):
         "Turn value ranges for the arguments keys into tuples of the form (<gap_fit-settings>, <gap_0-settings>, ...)"
