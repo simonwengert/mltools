@@ -1425,7 +1425,8 @@ class Gap(object):
             C_ABs.append(C_AB)
         return 1./(n_A*n_B)*np.sum(C_ABs)
 
-    def calc_kernel_matrix_soap(self, descriptors, ncores=1, destination='', header='', zeta=2.0, local_kernel=np.dot, calc_diag=False, verbose=False):
+    def calc_kernel_matrix_soap(self, descriptors, ncores=1, destination='', header='', zeta=2.0, local_kernel=np.dot,
+                                calc_diag=False, verbose=False):
         """
         Construct the kernel-matrix for a set of molecules/descriptors.
 
@@ -1435,7 +1436,7 @@ class Gap(object):
 
          Note: Indices with capital letters (e.g. C_AA) refer to un-normalized kernel-values,
                while indices with lower letters (e.g. C_ii) refer to kernel-values normalized
-               via the corresonding C_AA values.
+               via the corresponding C_AA values.
 
         Parameters:
         -----------
@@ -1473,61 +1474,83 @@ class Gap(object):
         # required for normalization
         C_AAs = []
         for idx_A in range(num):
-            C_AA = self._calc_average_kernel_soap_wo_C_AA_normalization(descriptors[idx_A], descriptors[idx_A], zeta=zeta, local_kernel=local_kernel)
+            C_AA = self._calc_average_kernel_soap_wo_C_AA_normalization(descriptors[idx_A], descriptors[idx_A],
+                                                                        zeta=zeta, local_kernel=local_kernel)
             C_AAs.append(C_AA)
 
-            if verbose and (idx_A+1)%10 == 0:
-                msg = 'Kernel element (diagonal) :     {0}/{1} (for normalization)'.format(idx_A+1, num)
+            if verbose and (idx_A+1)%10 == 0 or (idx_A+1) == num:
+                msg = '{0} Kernel element (diagonal) :     {1}/{2} (for normalization)'.format(
+                    str(datetime.datetime.now()), idx_A+1, num)
                 print(msg)
 
         # fill the lower triangle (without the diagonal) with (normalized) kernel values.
-        mp_out = mp.Queue()
-        processes = []
+        #  Note: the case ncores == 1 is treated separately without any use of multiprocessing.
+        if ncores != 1:
+            mp_out = mp.Queue()
+            processes = []
+        else:
+            mp_out = None
 
         current = 0
-        total = (num**2 - num)/2.
+        total = int((num**2 - num) / 2.)
         for i in range(1, num):
-            processes.append(
-                    mp.Process(
-                        target=self.calc_kernel_matrix_soap_row,
-                        args=(i, mp_out, descriptors, C_AAs, zeta, local_kernel)
+
+            if ncores != 1:
+                processes.append(
+                        mp.Process(
+                            target=self.calc_kernel_matrix_soap_row,
+                            args=(i, descriptors, C_AAs, mp_out, zeta, local_kernel)
+                            )
                         )
-                    )
 
-            if (len(processes) == ncores) or i == num-1:
-                # run processes
-                for p in processes:
-                    p.start()
-                # exit completed processes
-                for p in processes:
-                    p.join()
+                if (len(processes) == ncores) or i == num - 1:
+                    # run processes
+                    for p in processes:
+                        p.start()
 
-                row_i_C_ijs = [mp_out.get() for p in processes]
-                for row_i, C_ijs in row_i_C_ijs:
-                    C[row_i, :row_i] = C_ijs
+                    # exit completed processes
+                    # for p in processes:
+                    #     p.join()
+                    # NOTE: seems like join is not necessary and even makes the processes dying.
+                    #       Tested it without join and found identical results as without any parallelization
 
-                processes = []
+                    row_i_C_ijs = [mp_out.get() for p in processes]
+                    for row_i, C_ijs in row_i_C_ijs:
+                        C[row_i, :row_i] = C_ijs
+
+                    processes = []
+
+                    if verbose:
+                        num_row_batch = (num - 1) % ncores if i == num - 1 else ncores
+                        current += i * num_row_batch - sum([k for k in range(num_row_batch)])
+                        msg = '{0} Kernel element (off-diagonal) : {1}/{2} ({3:.4f} %)'.format(
+                            str(datetime.datetime.now()), current, total, 100 * float(current) / total)
+                        print(msg)
+            else:
+                C[i, :i] = self.calc_kernel_matrix_soap_row(i, descriptors, C_AAs, mp_out, zeta, local_kernel)
 
                 if verbose:
-                    num_row_batch = (num-1)%ncores if i == num-1 else ncores
-                    current += i*num_row_batch - sum([k for k in range(num_row_batch)])
-                    msg = 'Kernel element (off-diagonal) : {0}/{1} ({2:.4f} %)'.format(current, total, 100*float(current)/total)
+                    num_row_batch = (num - 1) % ncores if i == num - 1 else ncores
+                    current += i * num_row_batch - sum([k for k in range(num_row_batch)])
+                    msg = '{0} Kernel element (off-diagonal) : {1}/{2} ({3:.4f} %)'.format(
+                        str(datetime.datetime.now()), current, total, 100 * float(current) / total)
                     print(msg)
 
         # fill the diagonal elements
         if calc_diag:
             diag = []
             for i in range(num):
-                C_ii = self.calc_average_kernel_soap(descriptors[i], descriptors[i], zeta=zeta, local_kernel=local_kernel)
-                diag.append(C_ii / np.sqrt(C_ii*C_ii))
+                C_ii = self.calc_average_kernel_soap(descriptors[i], descriptors[i], zeta=zeta,
+                                                     local_kernel=local_kernel)
+                diag.append(C_ii / np.sqrt(C_ii * C_ii))
 
-                if verbose and (i+1)%10 == 0:
-                    msg = 'Kernel element (diagonal) :     {0}/{1}'.format(i+1, num)
+                if verbose and (i + 1) % 10 == 0:
+                    msg = '{0} Kernel element (diagonal) :     {1}/{2}'.format(str(datetime.datetime.now()), i + 1, num)
                     print(msg)
 
             diag = np.diag(diag)
         else:
-            diag = np.diag([1]*num)
+            diag = np.diag([1] * num)
 
         # Construct the full (symmetric) kernel matrix
         C = C + C.T + diag
@@ -1538,12 +1561,16 @@ class Gap(object):
 
         return C
 
-    def calc_kernel_matrix_soap_row(self, i, mp_out, descriptors, C_AAs, zeta=2.0, local_kernel=np.dot):
-        "Calculates the (unique) elements for row `i` of the (SOAP) kernel matrix"
+    def calc_kernel_matrix_soap_row(self, i, descriptors, C_AAs, mp_out=None, zeta=2.0, local_kernel=np.dot):
+        """Calculates the (unique) elements for row `i` of the (SOAP) kernel matrix"""
         C_i = np.zeros(i)
         for j in range(i):
-                C_i[j] = self.calc_average_kernel_soap(descriptors[i], descriptors[j], zeta=zeta, C_AA=C_AAs[i], C_BB=C_AAs[j], local_kernel=local_kernel)
-        mp_out.put((i, C_i))
+                C_i[j] = self.calc_average_kernel_soap(descriptors[i], descriptors[j], zeta=zeta, C_AA=C_AAs[i],
+                                                       C_BB=C_AAs[j], local_kernel=local_kernel)
+        if mp_out is not None:
+            mp_out.put((i, C_i))
+        else:
+            return C_i
 
     def calc_distance_matrix(self, C, destination='', header=''):
         """
