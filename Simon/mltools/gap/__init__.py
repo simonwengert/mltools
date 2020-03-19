@@ -950,50 +950,118 @@ class Gap(object):
         "Read in a DataFrame stored in a file with HDF5 format and return it."
         return pd.read_hdf(source, 'df')
 
-    def get_crossval_mean(self, df):
+    def get_grid_hyparams(self, df, **kwargs):
         """
-        Calculates the average values for parameters over individual subsets.
+        Selects hyperparameters from grid-search based on some (user-defined) criterion.
+
+        Parameters:
+        -----------
+        df : pandas DataFrame
+            Stores in the information from grid search
+            in the form as given via the `eval_grid_info()`-function.
+        criterion : string, optional
+            Criterion for the hyperparameter selection. Default is
+            `RMSE_min` selecting the hyperparameters yielding the lowest RMSE.
+            `RMSE_min_x_max` will (in combination with `tolerance`) define
+            a range of tolerable RMSE values. From this range
+            the combination of hyperparameters will be selected for which
+            the first one (`x`) is maximized. This is e.g. desired for
+            x being the energetic `default_sigma` since high values provide
+            better generalization of the model.
+        tolerance : float, optional
+            Factor defining the range of tolerable RMSE values (in combination
+            with `criterion` = `RMSE_min_x_max`). RMSE-values up to
+            `min(RMSE)*tolerance` will be used for the hyperparameter selection.
+        x : string, optional
+            Defining the `x` for `RMSE_min_x_max`.
+
+        Returns:
+        --------
+        A list of tuples with each tuple storing the name of the hyperparameter
+        and its corresponding selected value.
+        """
+        # NOTE: currently assumes exactly 2 hyperparameters
+        # extension to infinite dimensions should be straight-forward
+        criterion = kwargs.pop('criterion', 'RMSE_min')
+
+        keys = [col for col in df.columns]  # RMSE and names of the hyperparameters
+
+        # apply `criterion` to find hyperparameters values
+        arg_min = getattr(self, '_'.join(['_idxmin', criterion]))(df, **kwargs)
+        return {key: float(df[key][arg_min]) for key in keys}
+
+    def get_crossval_hyparams(self, df, **kwargs):
+        """
+        Selects hyperparameters from Cross-validation based on some (user-defined) criterion.
+
         Parameters:
         -----------
         df : pandas DataFrame
             Stores in the information from the Cross-validation
             in the form as given via the `eval_crossval()`-function.
+        criterion : string, optional
+            Criterion for the hyperparameter selection. Default is
+            `RMSE_min` selecting the hyperparameters yielding the lowest RMSE.
+            `RMSE_min_x_max` will (in combinatin with `tolerance`) define
+            a range of tolerable RMSE values. From this range
+            the combination of hyperparameters will be selected for which
+            the first one (`x`) is maximized. This is e.g. desired for
+            x being the energetic `default_sigma` since high values provide
+            better generalization of the model.
+        tolerance : float, optional
+            Factor defining the range of tolerable RMSE values (in combination
+            with `criterion` = `RMSE_min_x_max`). RMSE-values up to
+            `min(RMSE)*tolerance` will be used for the hyperparameter selection.
+        x : string, optional
+            Defining the `x` for `RMSE_min_x_max`.
 
         Returns:
         --------
-        A list of tuples with each tuple storing the name of the parameter
-        and its corresonding (mean) value.
+        A list of tuples with each tuple storing the name of the hyperparameter
+        and its corresponding selected value.
         """
         # NOTE: currently assumes exactly 2 hyperparameters
         # extension to infinite dimensions should be straight-forward
+        criterion = kwargs.pop('criterion', 'RMSE_min')
 
-        x_val_mins, y_val_mins = [], []  # used to get the mean values over the subsets
-        for level in np.unique(df.index.get_level_values(0)):
+        levels = np.unique(df.index.get_level_values(0))
+        keys = [col for col in df.loc[levels[0]]]  # RMSE and names of the hyperparameters
 
-            df_sub = df.loc[level]
+        # average RMSE-hypersurface
+        vals_RMSE = np.zeros((len(df.loc[levels[0]]), len(levels)))  # store RMSE-surfaces of all subsets
+        for idx, level in enumerate(levels):
+            vals_RMSE[:, idx] = df.loc[level]['RMSE']
+        vals_RMSE_mean = np.mean(vals_RMSE, axis=1)
 
-            # extract data
-            z_vals = df_sub.pop('RMSE')
+        # create dataframe for averaged hypersurface
+        df_average = df.loc[levels[0]]
+        df_average['RMSE'] = vals_RMSE_mean
 
-            cols = df_sub.columns
-            if len(cols) > 2:
-                raise ValueError('Dimension missmatch. Found more than two possibilities for x- and y-axis.')
+        # apply `criterion` to find hyperparameters values
+        arg_min = getattr(self, '_'.join(['_idxmin', criterion]))(df_average, **kwargs)
+        return {key: float(df_average[key][arg_min]) for key in keys}
 
-            # extract data
-            x_vals = df_sub[cols[0]]
-            y_vals = df_sub[cols[1]]
+    @staticmethod
+    def _idxmin_RMSE_min(df):
+        """Return the dataframe's row-index with the lowest RMSE."""
+        return df['RMSE'].idxmin()
 
-            arg_min = z_vals.idxmin
-            x_val_min = x_vals[arg_min]
-            y_val_min = y_vals[arg_min]
-            z_val_min = z_vals[arg_min]
+    @staticmethod
+    def _idxmin_RMSE_min_x_max(df, x, tolerance):
+        """Return the dataframe's row-index with the lowest RMSE (within a tolerance) while maximizing `x`."""
+        # extract data
+        vals_RMSE = df['RMSE']
+        vals_x = df[x]
 
-            # store for calculating mean values later
-            x_val_mins.append(x_val_min)
-            y_val_mins.append(y_val_min)
+        val_RMSE_max = vals_RMSE.min() * (1 + tolerance)  # upper limit for permitted z-values
 
-        return [(x_vals.name, np.mean(x_val_mins)),  # list of tuples to keep ordering (as defined in `df`)
-                (y_vals.name, np.mean(y_val_mins))]
+        # filter x-y-z combinations with z-values within tolerance
+        vals_in_tol_x = vals_x[vals_RMSE <= val_RMSE_max]
+        vals_in_tol_RMSE = vals_RMSE[vals_RMSE <= val_RMSE_max]
+
+        # select the x-y-z combinations with maximum x-value (there are multiple possibilities containing that x-value)
+        # (x is e.g. the energetic default_sigma for which large values are desired for good generalization)
+        vals_in_tol_max_x_RMSE = vals_in_tol_RMSE[vals_in_tol_x == vals_in_tol_x.max()]
 
     def view_crossval(self, df, log=[]):
         "Create plots for hypersurface of each subset and print some info."
