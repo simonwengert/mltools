@@ -512,7 +512,8 @@ class Gap(object):
 
         self.job_dir = _job_dir
 
-    def _is_gap_fit_out_completed(self, path_to_gap_fit_out, del_parent_dir=False):
+    @staticmethod
+    def _is_gap_fit_out_completed(path_to_gap_fit_out, del_parent_dir=False):
         """Returns True if gap_fit-output-file confirms a completed run else False (and optionally remove parent-dir."""
         if not os.path.exists(path_to_gap_fit_out):
             return False
