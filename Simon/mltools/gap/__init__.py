@@ -1623,3 +1623,67 @@ class Gap(object):
             msg = 'Invalid radicand \'K_ii+K_jj - 2*K_ij = {0}\'!'.format(radicand)
             raise ValueError(msg)
 
+    def get_subsets_farthest(self, data, num, dist_matrix, omnipresent=None):
+        """
+        Separate a list into sub-lists by farthest-point selection.
+
+        Parameters:
+        -----------
+        data : list (N)
+            Stores the entire data-set to be separated.
+        num: int
+            Number of subsets to be generated.
+        D : ndarray (N, N)
+            The distance matrix between individual elements (in `data`).
+        omnipresent : list
+            Stores entries to be present in each
+            of the subsets.
+
+        Returns:
+        --------
+        subsets : list
+            List of lists with each of the inner ones
+            representing a subset of the training-set.
+        """
+        if omnipresent is None:
+            omnipresent = []
+
+        # initialize subset_samples and subsets with first `num` data-points
+        subset_samples = [[idx] for idx in range(num)]
+        subsets = [omnipresent + [data[idx]] for idx in range(num)]
+
+        # continue distributing remaining samples on subsets
+        sample_i = num + 1  # first `num` samples have already been assigned
+        while True:
+            for idx in range(num):
+
+                # check if all samples have been distributed
+                if sample_i > len(data):
+                    return subsets
+
+                # already assigned samples need to be removed from dist_matrix
+                all_foreign_samples = list(ito.chain(*[subset_samples[idx_s] for idx_s in range(num)
+                                                       if not idx_s == idx]))
+
+                # mapper for indices in reduced space to indices in full space
+                # red2full_mapper[i] holds the value of the corresponding index in `full`
+                red2full_mapper = np.delete(np.arange(len(data)), all_foreign_samples)
+
+                # map to reduced space
+                dist_matrix_red = np.delete(dist_matrix, all_foreign_samples, axis=0)      # reduce for rows
+                dist_matrix_red = np.delete(dist_matrix_red, all_foreign_samples, axis=1)  # reduced for columns
+                # map samples/indices of full space to reduced space
+                subset_samples_red = np.where(np.isin(red2full_mapper, subset_samples[idx]) is True)[0]
+
+                # find farthest in reduced space
+                subset_samples_red = self.find_farthest(dist_matrix_red, subset_samples_red, len(subset_samples_red)+1)
+
+                # map to full space
+                subset_samples_idx = red2full_mapper[subset_samples_red]
+                if not np.array_equal(np.sort(subset_samples[idx]), np.sort(subset_samples_idx[:-1])):
+                    msg = 'Debug: indices handling is wrong.'
+                    raise ValueError(msg)
+                subset_samples[idx] = list(subset_samples_idx)
+                subsets[idx].append(data[subset_samples_idx[-1]])
+
+                sample_i += 1  # increment for next iteration
