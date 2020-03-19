@@ -24,6 +24,7 @@ except ImportError as e:
     print('Couldn\'t load plotting packages. Corresponding functionalities will not be available!')
 import time
 import multiprocessing as mp
+import datetime
 
 import ase.io
 import quippy.descriptors
