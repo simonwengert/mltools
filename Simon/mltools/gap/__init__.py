@@ -1611,7 +1611,15 @@ class Gap(object):
 
         return D
 
-    def calc_distance_element(self, K_ii, K_jj, K_ij):
-        "Distance is calculated as self-similarities minus cross-similarity."
-        return np.sqrt(K_ii+K_jj - 2*K_ij)
+    @staticmethod
+    def calc_distance_element(K_ii, K_jj, K_ij):
+        """Distance is calculated as self-similarities minus cross-similarity."""
+        radicand = K_ii+K_jj - 2*K_ij
+        if radicand >= 0:
+            return np.sqrt(radicand)
+        elif radicand < 0 and np.isclose(radicand, 0.0):
+            return 0
+        else:
+            msg = 'Invalid radicand \'K_ii+K_jj - 2*K_ij = {0}\'!'.format(radicand)
+            raise ValueError(msg)
 
