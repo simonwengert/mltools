@@ -734,9 +734,10 @@ class Gap(object):
         init_set_red = [entry for idx, entry in enumerate(init_set) if idx not in indices_vs]
         return subset, init_set_red
 
-    def eval_grid(self, gap_fit_ranges, gaps_ranges, key_true, key_pred, destination='', job_dir='', outfile_quip=''):
+    def eval_grid(self, gap_fit_ranges, gaps_ranges, key_true, key_pred, info_or_arrays='info', destination='',
+                  job_dir='', outfile_quip=''):
         """
-        Extract metrics for the prediction-errors and the corresonding parameters of the models sampled on the grid.
+        Extract metrics for the prediction-errors and the corresponding parameters of the models sampled on the grid.
 
         Parameters:
         -----------
@@ -752,6 +753,8 @@ class Gap(object):
             Identifier for the reference value within an ase-object.
         key_pred : string
             Identifier for the prediction value within an ase-object.
+        info_or_arrays : string
+            Are the values stored in ase-object's `info`- or `arrays`-dict.
         destination : string, optional
             Location of file the extracted data will be written to.
             If not specified no file will be written.
@@ -784,21 +787,30 @@ class Gap(object):
 
         results = pd.DataFrame()
 
-        # try to assign defaults if arguments have not been specified explicitely
+        # try to assign defaults if arguments have not been specified explicitly
         job_dir = job_dir if job_dir else self.job_dir
         outfile_quip = outfile_quip if outfile_quip else 'quip_' + self.params_quip['atoms_filename']
 
         for params_tuple in self._get_params_tuples(gap_fit_ranges, gaps_ranges):
 
             # initialize dataframe with parameter settings
-            result_single  = self._params_tuple_to_dataframe(params_tuple)
+            result_single = self._params_tuple_to_dataframe(params_tuple)
 
             # add values for some metrics (e.g. RMSE) based predictions
-            true_n_pred = mltools.misc.get_info(
-                    p_xyz_file = os.path.join(job_dir, self._params_tuple_to_dir_name(params_tuple), outfile_quip),
-                    keys = [key_true, key_pred])
-            for metric in self._metrics:
-                result_single[metric] = getattr(self, 'get_'+metric.lower())(true_n_pred[key_true], true_n_pred[key_pred])
+            if info_or_arrays == 'info':
+                true_n_pred = mltools.misc.get_info(
+                        p_xyz_file=os.path.join(job_dir, self._params_tuple_to_dir_name(params_tuple), outfile_quip),
+                        keys=[key_true, key_pred])
+                for metric in self._metrics:
+                    result_single[metric] = getattr(self, 'get_' + metric.lower())(true_n_pred[key_true],
+                                                                                   true_n_pred[key_pred])
+            elif info_or_arrays == 'arrays':
+                true_n_pred = mltools.misc.get_arrays(
+                    p_xyz_file=os.path.join(job_dir, self._params_tuple_to_dir_name(params_tuple), outfile_quip),
+                    keys=[key_true, key_pred])
+                for metric in self._metrics:
+                    result_single[metric] = getattr(self, 'get_'+metric.lower())(true_n_pred[key_true].flatten(),
+                                                                                 true_n_pred[key_pred].flatten())
 
             results = pd.concat([results, result_single], ignore_index=True)
 

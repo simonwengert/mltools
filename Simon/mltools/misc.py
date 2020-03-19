@@ -1,12 +1,9 @@
 import os
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import rcParams
 import itertools as ito
 
 import ase.io
 # import mytools.checks
-import rtools.helpers.matplotlibhelpers as helpers
 
 
 def get_info(p_xyz_file, keys):
@@ -23,7 +20,7 @@ def get_info(p_xyz_file, keys):
     Returns
     -------
     info : dict
-        Stores extracted informations. Keys are `keys`,
+        Stores extracted information. Keys are `keys`,
         while corresponding values are lists with extracted
         information (ordering as in xyz-file).
     """
@@ -38,6 +35,47 @@ def get_info(p_xyz_file, keys):
         for key in keys:
             info[key].append(o_geo.info[key])
     return info
+
+
+def get_arrays(p_xyz_file, keys, geo_resolved=False):
+    """
+    Parse xyz-file for array-like data.
+
+    Parameters
+    ----------
+    p_xyz_file : str
+        Path the an (ase-readable) xyz-file.
+    keys : list or str
+        Desired keys of the ase-object.arrays dictionary.
+    geo_resolved : bool
+        If set to `True`, the values of `arrays` will be lists
+        with individual arrays per geometry. If set to `False`,
+        the values will be concatenated arrays with data
+        of all geometries.
+
+    Returns
+    -------
+    arrays : dict
+        Stores extracted information. Keys are `keys`,
+        while corresponding values are arrays with extracted
+        information (ordering as in xyz-file).
+    """
+    if isinstance(keys, str):
+        keys = list(keys)
+    elif not isinstance(keys, list):
+        raise TypeError("'keys' must be of type 'list' or 'str'")
+
+    o_geos = ase.io.read(p_xyz_file+'@:')
+
+    arrays = {key: [] for key in keys}
+    for o_geo in o_geos:
+        for key in keys:
+            arrays[key].append(o_geo.arrays[key])
+
+    if not geo_resolved:
+        for key in keys:
+            arrays[key] = np.concatenate((arrays[key]))
+    return arrays
 
 
 
