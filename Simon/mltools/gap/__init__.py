@@ -1050,7 +1050,7 @@ class Gap(object):
 
         # create dataframe for averaged hypersurface
         df_average = df.loc[levels[0]]
-        df_average['RMSE'] = vals_RMSE_mean
+        df_average.loc[:, 'RMSE'] = vals_RMSE_mean
 
         # apply `criterion` to find hyperparameters values
         arg_min = getattr(self, '_'.join(['_idxmin', criterion]))(df_average, **kwargs)
