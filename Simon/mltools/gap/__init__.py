@@ -1026,9 +1026,19 @@ class Gap(object):
         tolerance : float, optional
             Factor defining the range of tolerable RMSE values (in combination
             with `criterion` = `RMSE_min_x_max`). RMSE-values up to
-            `min(RMSE)*tolerance` will be used for the hyperparameter selection.
+            `min(RMSE)*(1 + tolerance)` will be used for the hyperparameter selection.
+        tolerance_RMSE : float, optional
+            Factor defining the range of tolerable RMSE values (in combination
+            with `criterion` = `RMSE_min_x_max_y_min`). RMSE-values up to
+            `min(RMSE)*(1 + tolerance_RMSE)` will be used for the hyperparameter selection.
+        tolerance_x : float, optional
+            Factor defining the range of tolerable `x` values (in combination
+            with `criterion` = `RMSE_min_x_max_y_min`). `x`-values as low as
+            `min(RMSE)*(1 - tolerance)` will be used for the hyperparameter selection.
         x : string, optional
-            Defining the `x` for `RMSE_min_x_max`.
+            Defining the `x` for `RMSE_min_x_max` or `RMSE_min_x_max_y_min`.
+        y : string, optional
+            Defining the `y` for `RMSE_min_x_max_y_min`.
 
         Returns:
         --------
@@ -1077,7 +1087,8 @@ class Gap(object):
 
     @staticmethod
     def _idxmin_RMSE_min_x_max_y_min(df, x, y, tolerance_RMSE, tolerance_x):
-        """Return the dataframe's row-index with the lowest RMSE (within a tolerance) while maximizing `x`."""
+        """Return the dataframe's row-index with the lowest RMSE (within a tolerance) while maximizing `x`
+        and minimizing `y`."""
         # extract data
         vals_RMSE = df['RMSE']
         vals_x = df[x]
