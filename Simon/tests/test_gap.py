@@ -365,6 +365,7 @@ class TestParser(unittest.TestCase):
         gaps_ranges = [{'key_0' : [0, 1, 2]}]
         key_true = 'float_0'
         key_pred = 'float_1'
+        info_or_arrays = 'info'
         destination = 'eval_grid.both'
         job_dir = os.path.join(self.cwd, 'tests', 'data', 'tree', '0_crossval')
         outfile_quip = 'quip_out.xyz'
@@ -377,7 +378,7 @@ class TestParser(unittest.TestCase):
             ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_grid.python3.h5')
 
         gap = mltools.gap.Gap()
-        gap.eval_grid(gap_fit_ranges, gaps_ranges, key_true, key_pred, destination, job_dir, outfile_quip)
+        gap.eval_grid(gap_fit_ranges, gaps_ranges, key_true, key_pred, info_or_arrays, destination, job_dir, outfile_quip)
 
         self.assertTrue(filecmp.cmp('eval_grid.txt', ref_file_txt))
         pd.testing.assert_frame_equal(pd.read_hdf('eval_grid.h5'), pd.read_hdf(ref_file_h5))
@@ -388,6 +389,7 @@ class TestParser(unittest.TestCase):
         num = 3
         key_true = 'float_0'
         key_pred = 'float_1'
+        info_or_arrays = 'info'
         destination = 'eval_crossval.both'
         job_dir = os.path.join(self.cwd, 'tests', 'data', 'tree')
         outfile_quip = 'quip_out.xyz'
@@ -400,24 +402,24 @@ class TestParser(unittest.TestCase):
             ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.python3.h5')
 
         gap = mltools.gap.Gap()
-        gap.eval_crossval(gap_fit_ranges, gaps_ranges, num, key_true, key_pred, destination, job_dir, outfile_quip)
+        gap.eval_crossval(gap_fit_ranges, gaps_ranges, num, key_true, key_pred, info_or_arrays, destination, job_dir, outfile_quip)
 
         self.assertTrue(filecmp.cmp('eval_crossval.txt', ref_file_txt))
         pd.testing.assert_frame_equal(pd.read_hdf('eval_crossval.h5'), pd.read_hdf(ref_file_h5))
 
-    def test_get_crossval_mean(self):
+    def test_get_crossval_hyparams(self):
         #python2/3
         if sys.version_info[0] == 2:
             file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.python2.h5')
         elif sys.version_info[0] == 3:
             file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.python3.h5')
-        ref_means = [('default_sigma_energies', 0.10000000000000002), ('gap_0_key_0', 2.0)]
+        ref_means = {'RMSE': 1.9257206443303245, 'default_sigma_energies': 0.10000000000000000, 'gap_0_key_0': 2.0}
         df = pd.read_hdf(file_h5)
 
         gap = mltools.gap.Gap()
-        self.assertEqual(gap.get_crossval_mean(df), ref_means)
+        self.assertEqual(gap.get_crossval_hyparams(df), ref_means)
 
-    def test_find_furthest(self):
+    def test_find_farthest(self):
         # dists_matrix resembels approximatily:
         # +--------------------+
         # | oo                 | <= sample 0, sample 1
@@ -439,7 +441,7 @@ class TestParser(unittest.TestCase):
         number = 5
 
         gap = mltools.gap.Gap()
-        self.assertEqual(gap.find_furthest(dists_matrix, seeds, number), [0, 4, 2, 3, 1])
+        self.assertEqual(gap.find_farthest(dists_matrix, seeds, number), [0, 4, 2, 3, 1])
 
     def test_get_descriptors_soap(self):
         p_xyz_file = os.path.join(self.cwd, 'tests', 'data', 'xyz', '1_test.xyz')
