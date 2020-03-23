@@ -1114,77 +1114,295 @@ class Gap(object):
         # select the x-y-z combination with the minimum RMSE
         return vals_in_tol_max_x_min_y_RMSE.idxmin()
 
-            # extract data
-            z_vals = df_sub.pop('RMSE')
+    def view_grid_search(self, df, **kwargs):
+        """Create plots for hypersurface and print some info.
 
-            cols = df_sub.columns
-            if len(cols) > 2:
-                raise ValueError('Dimension missmatch. Found more than two possibilities for x- and y-axis.')
-            x_vals = df_sub[cols[0]]
-            y_vals = df_sub[cols[1]]
+        Parameters:
+        -----------
+        df : pandas DataFrame
+            Stores hyperparameter combinations and measures
+            for the fit quality (e.g. RMSE)
+        log : list, optional
+            List of strings activating log-scale plotting
+            for the corresponding axis (e.g. ['RMSE', 'default_simga_energies']).
+        show_below_RMSE: float, optional
+            Show hypersurface for values with a lower RMSE.
+        azim : float, optional
+            Azimuthal viewing angle.
+        elev : float, optional
+            Elevation viewing angle.
+        destination : string, optional
+            Path under which the plots will be saved.
+            If does not end with .png, it will be treated as path to a directory.
+             The plot will than be saved as `hypersurface.png` in it.
+        criterion : string, optional
+            Criterion for the hyperparameter selection that will be shown. Default is
+            `RMSE_min` selecting the hyperparameters yielding the lowest RMSE.
+            `RMSE_min_x_max` will (in combinatin with `tolerance`) define
+            a range of range of tolerable RMSE values. From this range
+            the combination of hyperparameters will be selected for which
+            the first one (`x`) is maximized. This is e.g. desired for
+            x being the energetic `default_sigma` since high values provide
+            better generalization of the model.
+        tolerance : float, optional
+            Factor defining the range of tolerable RMSE values (in combination
+            with `criterion` = `RMSE_min_x_max`). RMSE-values up to
+            `min(RMSE)*(1 + tolerance)` will be used for the hyperparameter selection.
+        tolerance_RMSE : float, optional
+            Factor defining the range of tolerable RMSE values (in combination
+            with `criterion` = `RMSE_min_x_max_y_min`). RMSE-values up to
+            `min(RMSE)*(1 + tolerance_RMSE)` will be used for the hyperparameter selection.
+        tolerance_x : float, optional
+            Factor defining the range of tolerable `x` values (in combination
+            with `criterion` = `RMSE_min_x_max_y_min`). `x`-values as low as
+            `min(RMSE)*(1 - tolerance)` will be used for the hyperparameter selection.
+        x : string, optional
+            Defining the `x` for `RMSE_min_x_max` or `RMSE_min_x_max_y_min`.
+        y : string, optional
+            Defining the `y` for `RMSE_min_x_max_y_min`.
+        x_norm : float, optional
+            Values on x-axis will be divided by `x_norm`
+            (e.g. for plotting default_energy_sigma as fraction of training-data STD)
+        y_norm : float, optional
+            Values on y-axis will be divided by `y_norm`
+            (e.g. for plotting default_energy_sigma as fraction of training-data STD)
+        """
 
-            arg_min = z_vals.idxmin
-            x_val_min = x_vals[arg_min]
-            y_val_min = y_vals[arg_min]
-            z_val_min = z_vals[arg_min]
+        # defaults
+        criterion = kwargs.pop('criterion', 'RMSE_min')
+        azim = kwargs.pop('azim', -60)
+        elev = kwargs.pop('elev', 30)
+        x_norm = kwargs.pop('x_norm', 1.)
+        y_norm = kwargs.pop('y_norm', 1.)
+        log = kwargs.pop('log', [])
+        destination = kwargs.pop('destination', '')
+        show_below_RMSE = kwargs.pop('show_below_RMSE', np.max(df['RMSE']))
 
-            # print some data (before showing the plot,
-            # thus the user will see both simulatneously)
-            msg = '\nOptimum values {0}:\n'.format(level)
-            msg += '-'*(len(msg)-2) + '\n'
-            msg += '{0:<30} : {1:>20}\n'.format(x_vals.name, x_val_min)
-            msg += '{0:<30} : {1:>20}\n'.format(y_vals.name, y_val_min)
-            msg += '{0:<30} : {1:>20}\n'.format(z_vals.name, z_val_min)
-            print(msg)
+        cols = df.columns
+        num_samples, num_dims = df.shape
 
-            # plot data
+        names_indep_vars = cols[cols != 'RMSE']
+        norms = (x_norm, y_norm)
+
+        # apply `criterion` to find hyperparameters values
+        arg_min = getattr(self, '_'.join(['_idxmin', criterion]))(df, **kwargs)
+
+        # print some data (before showing the plot,
+        # thus the user will see both simultaneously)
+        msg = '\nOptimum values:\n'
+        msg += '-'*(len(msg)-2) + '\n'
+        for var_i in names_indep_vars:
+            msg += '{0:<30} : {1:>20}\n'.format(var_i, df[var_i][arg_min])
+        print(msg)
+
+        # normalization
+        for col_i, norm_i in zip(names_indep_vars, norms):
+            df[col_i] = df[col_i] / norm_i
+        # logarithmic plotting
+        for col_i in log:
+            df[col_i] = np.log10(df[col_i])
+
+        # plot data
+        if num_dims == 2:
+            fig, ax = plt.subplots()
+
+            name_indep_var = names_indep_vars[0]
+            ax.set_xlabel(name_indep_var)
+            ax.set_ylabel('RMSE')
+
+            ax.plot(df[name_indep_var], df['RMSE'])
+
+            ax.scatter([df[name_indep_var][arg_min]], df['RMSE'][arg_min], c='r')
+
+        elif num_dims == 3:
             fig = plt.figure()
             ax = Axes3D(fig)
 
-            ax.set_xlabel(x_vals.name)
-            ax.set_ylabel(y_vals.name)
-            ax.set_zlabel(z_vals.name)
+            ax.view_init(azim=azim, elev=elev)
 
-            for idx, log_i in enumerate(log):
-                if idx == 0 and log_i:
-                    x_vals = np.log10(x_vals)
-                    x_val_min = np.log10(x_val_min)
-                if idx == 1 and log_i:
-                    y_vals = np.log10(y_vals)
-                    y_val_min = np.log10(y_val_min)
-                if idx == 2 and log_i:
-                    z_vals = np.log10(z_vals)
-                    z_val_min = np.log10(z_val_min)
+            name_indep_var_x = names_indep_vars[0]
+            name_indep_var_y = names_indep_vars[1]
+            ax.set_xlabel(name_indep_var_x)
+            ax.set_ylabel(name_indep_var_y)
+            ax.set_zlabel('RMSE')
 
-            ax.plot_trisurf(x_vals, y_vals, z_vals, cmap=cm.jet, linewidth=0.2)
+            ds_es = df[name_indep_var_x]
+            ds_fs = df[name_indep_var_y]
+            rmses = df['RMSE']
 
-            ax.plot([x_val_min], [y_val_min], [z_val_min], 'ro')
+            ds_fs = ds_fs[rmses < show_below_RMSE]
+            ds_es = ds_es[rmses < show_below_RMSE]
+            rmses = rmses[rmses < show_below_RMSE]
 
-            plt.show()
+            ax.plot_trisurf(ds_es, ds_fs, rmses, cmap=cm.jet, linewidth=0.2, alpha=0.8)
 
-            # store for calculating mean values later
-            for idx in enumerate(log):
-                if idx == 0 and log[idx]:
-                    x_vals = 10**x_vals
-                    x_val_min = 10**x_val_min
-                if idx == 1 and log[idx]:
-                    y_vals = 10**y_vals
-                    y_val_min = 10**y_val_min
-                if idx == 2 and log[idx]:
-                    z_vals = 10**z_vals
-                    z_val_min = 10**z_val_min
+            ax.plot([ds_es[arg_min]], [ds_fs[arg_min]], [rmses[arg_min]], 'ro')
 
-            x_val_mins.append(x_val_min)
-            y_val_mins.append(y_val_min)
+        if destination:
+            if destination.endswith('.png'):
+                plt.savefig(destination)
+            else:
+                plt.savefig(os.path.join(destination, 'hypersurface.png'))
 
-        # print mean values
-        x_val_mean = np.mean(x_val_mins)
-        y_val_mean = np.mean(y_val_mins)
-        msg = '\nMean of optimum values:\n'
+        plt.show()
+
+    def view_crossval(self, df, **kwargs):
+        """Create plots for hypersurface of each subset and print some info.
+
+        Parameters:
+        -----------
+        df : pandas DataFrame
+            Stores hyperparameter combinations and measures
+            for the fit quality (e.g. RMSE)
+        log : list, optional
+            List of booleans activating log-scale plotting
+            for the individual axis (x, y, z).
+        show_below_RMSE: float, optional
+            Show hypersurface for values with a lower RMSE.
+        azim : float, optional
+            Azimuthal viewing angle.
+        elev : float, optional
+            Elevation viewing angle.
+        destination : string (or list), optional
+            In case a string is given it is the path to the directory
+            where the plots will be saved. The plots will be saved as
+            `hypersurface_<n>.png` with `n` labeling the individual subsets.
+            In case a list of strings is given, each list entry (0, .., n) is the
+            path used to save the individual subsets.
+        criterion : string, optional
+            Criterion for the hyperparameter selection that will be shown. Default is
+            `RMSE_min` selecting the hyperparameters yielding the lowest RMSE.
+            `RMSE_min_x_max` will (in combinatin with `tolerance`) define
+            a range of range of tolerable RMSE values. From this range
+            the combination of hyperparameters will be selected for which
+            the first one (`x`) is maximized. This is e.g. desired for
+            x being the energetic `default_sigma` since high values provide
+            better generalization of the model.
+        tolerance : float, optional
+            Factor defining the range of tolerable RMSE values (in combination
+            with `criterion` = `RMSE_min_x_max`). RMSE-values up to
+            `min(RMSE)*(1 + tolerance)` will be used for the hyperparameter selection.
+        tolerance_RMSE : float, optional
+            Factor defining the range of tolerable RMSE values (in combination
+            with `criterion` = `RMSE_min_x_max_y_min`). RMSE-values up to
+            `min(RMSE)*(1 + tolerance_RMSE)` will be used for the hyperparameter selection.
+        tolerance_x : float, optional
+            Factor defining the range of tolerable `x` values (in combination
+            with `criterion` = `RMSE_min_x_max_y_min`). `x`-values as low as
+            `min(RMSE)*(1 - tolerance)` will be used for the hyperparameter selection.
+        x : string, optional
+            Defining the `x` for `RMSE_min_x_max` or `RMSE_min_x_max_y_min`.
+        y : string, optional
+            Defining the `y` for `RMSE_min_x_max_y_min`.
+        x_norm : float, optional
+            Values on x-axis will be divided by `x_norm`
+            (e.g. for plotting default_energy_sigma as fraction of training-data STD)
+        y_norm : float, optional
+            Values on y-axis will be divided by `y_norm`
+            (e.g. for plotting default_energy_sigma as fraction of training-data STD)
+        """
+
+        # defaults
+        criterion = kwargs.pop('criterion', 'RMSE_min')
+        azim = kwargs.pop('azim', -60)
+        elev = kwargs.pop('elev', 30)
+        x_norm = kwargs.pop('x_norm', 1.)
+        y_norm = kwargs.pop('y_norm', 1.)
+        log = kwargs.pop('log', [])
+        destination = kwargs.pop('destination', '')
+
+        levels = np.unique(df.index.get_level_values(0))
+
+        # create dataframe for averaged hypersurface
+        df_average = copy.deepcopy(df.loc[levels[1]])
+        df_average['RMSE'] = np.mean([df.loc[level]['RMSE'] for level in levels], axis=0)
+
+        show_below_RMSE = kwargs.pop('show_below_RMSE', np.max(df_average['RMSE']))
+
+        cols = df_average.columns
+        num_dims, num_samples = len(cols), len(df_average[cols[0]])
+
+        names_indep_vars = cols[cols != 'RMSE']
+        norms = (x_norm, y_norm)
+
+        # apply `criterion` to find hyperparameters values
+        arg_min = getattr(self, '_'.join(['_idxmin', criterion]))(df_average, **kwargs)
+
+        # print some data (before showing the plot,
+        # thus the user will see both simultaneously)
+        msg = '\nOptimum values {0}:\n'.format('average')
         msg += '-'*(len(msg)-2) + '\n'
-        msg += '{0:<20} : {1:>10}\n'.format(x_vals.name, x_val_mean)
-        msg += '{0:<20} : {1:>10}\n'.format(y_vals.name, y_val_mean)
+        for var_i in names_indep_vars:
+            msg += '{0:<30} : {1:>20}\n'.format(var_i, df_average[var_i][arg_min])
         print(msg)
+
+        # normalization
+        for col_i, norm_i in zip(names_indep_vars, norms):
+            df_average[col_i] = df_average[col_i] / norm_i
+        # logarithmic plotting
+        for col_i in log:
+            df_average[col_i] = np.log10(df_average[col_i])
+
+        # plot data
+        if num_dims == 2:
+            fig, ax = plt.subplots()
+
+            name_indep_var = names_indep_vars[0]
+            ax.set_xlabel(name_indep_var)
+            ax.set_ylabel('RMSE')
+
+            ax.plot(df_average[name_indep_var], df_average['RMSE'])
+
+            ax.scatter([df_average[name_indep_var][arg_min]], df_average['RMSE'][arg_min], c='r')
+
+        elif num_dims == 3:
+            fig = plt.figure()
+            ax = Axes3D(fig)
+
+            ax.view_init(azim=azim, elev=elev)
+
+            name_indep_var_x = names_indep_vars[0]
+            name_indep_var_y = names_indep_vars[1]
+            ax.set_xlabel(name_indep_var_x)
+            ax.set_ylabel(name_indep_var_y)
+            ax.set_zlabel('RMSE')
+
+            ds_es = df_average[name_indep_var_x]
+            ds_fs = df_average[name_indep_var_y]
+            rmses = df_average['RMSE']
+
+            ds_fs = ds_fs[rmses < show_below_RMSE]
+            ds_es = ds_es[rmses < show_below_RMSE]
+            rmses = rmses[rmses < show_below_RMSE]
+
+            ax.plot_trisurf(ds_es, ds_fs, rmses, cmap=cm.jet, linewidth=0.2, alpha=0.8)
+
+            ax.plot([ds_es[arg_min]], [ds_fs[arg_min]], [rmses[arg_min]], 'ro')
+
+        if destination:
+            if isinstance(destination, str):
+                plt.savefig(os.path.join(destination, 'hypersurface_average.png'))
+            elif isinstance(destination, list):
+                plt.savefig(destination[0])
+
+        plt.show()
+
+        for idx_subset, level in enumerate(np.unique(df.index.get_level_values(0))):
+
+            destination_i = os.path.join(destination, 'hypersurface_{}.png'.format(idx_subset)) if destination else ''
+
+            df_sub = df.loc[level]
+            self.view_grid_search(
+                df_sub,
+                criterion=criterion,
+                azim=azim,
+                elev=elev,
+                x_norm=x_norm,
+                y_norm=y_norm,
+                log=log,
+                destination=destination_i,
+                show_below_RMSE=show_below_RMSE,
+                ** kwargs)
 
     def view_correlation(self, sources, key_true, key_pred):
         # TODO: improve plot settings
