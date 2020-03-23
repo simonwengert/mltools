@@ -1042,15 +1042,9 @@ class Gap(object):
         levels = np.unique(df.index.get_level_values(0))
         keys = [col for col in df.loc[levels[0]]]  # RMSE and names of the hyperparameters
 
-        # average RMSE-hypersurface
-        vals_RMSE = np.zeros((len(df.loc[levels[0]]), len(levels)))  # store RMSE-surfaces of all subsets
-        for idx, level in enumerate(levels):
-            vals_RMSE[:, idx] = df.loc[level]['RMSE']
-        vals_RMSE_mean = np.mean(vals_RMSE, axis=1)
-
         # create dataframe for averaged hypersurface
-        df_average = df.loc[levels[0]]
-        df_average.loc[:, 'RMSE'] = vals_RMSE_mean
+        df_average = copy.deepcopy(df.loc[levels[1]])
+        df_average['RMSE'] = np.mean([df.loc[level]['RMSE'] for level in levels], axis=0)
 
         # apply `criterion` to find hyperparameters values
         arg_min = getattr(self, '_'.join(['_idxmin', criterion]))(df_average, **kwargs)
