@@ -428,7 +428,7 @@ class TestParser(unittest.TestCase):
         gap = mltools.gap.Gap()
         self.assertEqual(gap.separate_random_uniform(init_set, subset_size, seed), (ref_subset, ref_init_set_red))
 
-    def test_eval_grid(self):
+    def test_eval_grid_info(self):
         gap_fit_ranges = {'default_sigma' : [[0.1, 0, 0, 0], [0.01, 0, 0, 0], [0.001, 0, 0, 0]]}
         gaps_ranges = [{'key_0' : [0, 1, 2]}]
         key_true = 'float_0'
@@ -438,12 +438,35 @@ class TestParser(unittest.TestCase):
         job_dir = os.path.join(self.cwd, 'tests', 'data', 'tree', '0_crossval')
         outfile_quip = 'quip_out.xyz'
 
-        ref_file_txt = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_grid.txt')
+        ref_file_txt = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_grid.info.txt')
         #python2/3
         if sys.version_info[0] == 2:
-            ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_grid.python2.h5')
+            ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_grid.info.python2.h5')
         elif sys.version_info[0] == 3:
-            ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_grid.python3.h5')
+            ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_grid.info.python3.h5')
+
+        gap = mltools.gap.Gap()
+        gap.eval_grid(gap_fit_ranges, gaps_ranges, key_true, key_pred, info_or_arrays, destination, job_dir, outfile_quip)
+
+        self.assertTrue(filecmp.cmp('eval_grid.txt', ref_file_txt))
+        pd.testing.assert_frame_equal(pd.read_hdf('eval_grid.h5'), pd.read_hdf(ref_file_h5))
+
+    def test_eval_grid_arrays(self):
+        gap_fit_ranges = {'default_sigma' : [[0.1, 0, 0, 0], [0.01, 0, 0, 0], [0.001, 0, 0, 0]]}
+        gaps_ranges = [{'key_0' : [0, 1, 2]}]
+        key_true = 'floats_0'
+        key_pred = 'floats_1'
+        info_or_arrays = 'arrays'
+        destination = 'eval_grid.both'
+        job_dir = os.path.join(self.cwd, 'tests', 'data', 'tree', '0_crossval')
+        outfile_quip = 'quip_out.xyz'
+
+        ref_file_txt = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_grid.arrays.txt')
+        #python2/3
+        if sys.version_info[0] == 2:
+            ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_grid.arrays.python2.h5')
+        elif sys.version_info[0] == 3:
+            ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_grid.arrays.python3.h5')
 
         gap = mltools.gap.Gap()
         gap.eval_grid(gap_fit_ranges, gaps_ranges, key_true, key_pred, info_or_arrays, destination, job_dir, outfile_quip)
