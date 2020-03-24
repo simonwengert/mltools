@@ -474,7 +474,7 @@ class TestParser(unittest.TestCase):
         self.assertTrue(filecmp.cmp('eval_grid.txt', ref_file_txt))
         pd.testing.assert_frame_equal(pd.read_hdf('eval_grid.h5'), pd.read_hdf(ref_file_h5))
 
-    def test_eval_crossval(self):
+    def test_eval_crossval_info(self):
         gap_fit_ranges = {'default_sigma' : [[0.1, 0, 0, 0], [0.01, 0, 0, 0], [0.001, 0, 0, 0]]}
         gaps_ranges = [{'key_0' : [0, 1, 2]}]
         num = 3
@@ -485,12 +485,36 @@ class TestParser(unittest.TestCase):
         job_dir = os.path.join(self.cwd, 'tests', 'data', 'tree')
         outfile_quip = 'quip_out.xyz'
 
-        ref_file_txt = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.txt')
+        ref_file_txt = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.info.txt')
         #python2/3
         if sys.version_info[0] == 2:
-            ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.python2.h5')
+            ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.info.python2.h5')
         elif sys.version_info[0] == 3:
-            ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.python3.h5')
+            ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.info.python3.h5')
+
+        gap = mltools.gap.Gap()
+        gap.eval_crossval(gap_fit_ranges, gaps_ranges, num, key_true, key_pred, info_or_arrays, destination, job_dir, outfile_quip)
+
+        self.assertTrue(filecmp.cmp('eval_crossval.txt', ref_file_txt))
+        pd.testing.assert_frame_equal(pd.read_hdf('eval_crossval.h5'), pd.read_hdf(ref_file_h5))
+
+    def test_eval_crossval_arrays(self):
+        gap_fit_ranges = {'default_sigma' : [[0.1, 0, 0, 0], [0.01, 0, 0, 0], [0.001, 0, 0, 0]]}
+        gaps_ranges = [{'key_0' : [0, 1, 2]}]
+        num = 3
+        key_true = 'floats_0'
+        key_pred = 'floats_1'
+        info_or_arrays = 'arrays'
+        destination = 'eval_crossval.both'
+        job_dir = os.path.join(self.cwd, 'tests', 'data', 'tree')
+        outfile_quip = 'quip_out.xyz'
+
+        ref_file_txt = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.arrays.txt')
+        #python2/3
+        if sys.version_info[0] == 2:
+            ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.arrays.python2.h5')
+        elif sys.version_info[0] == 3:
+            ref_file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.arrays.python3.h5')
 
         gap = mltools.gap.Gap()
         gap.eval_crossval(gap_fit_ranges, gaps_ranges, num, key_true, key_pred, info_or_arrays, destination, job_dir, outfile_quip)
@@ -501,14 +525,26 @@ class TestParser(unittest.TestCase):
     def test_get_crossval_hyparams(self):
         #python2/3
         if sys.version_info[0] == 2:
-            file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.python2.h5')
+            file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.info.python2.h5')
         elif sys.version_info[0] == 3:
-            file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.python3.h5')
+            file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_crossval.info.python3.h5')
         ref_means = {'RMSE': 1.9257206443303245, 'default_sigma_energies': 0.10000000000000000, 'gap_0_key_0': 2.0}
         df = pd.read_hdf(file_h5)
 
         gap = mltools.gap.Gap()
         self.assertEqual(gap.get_crossval_hyparams(df), ref_means)
+
+    def test_get_grid_hyparams(self):
+        #python2/3
+        if sys.version_info[0] == 2:
+            file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_grid.arrays.python2.h5')
+        elif sys.version_info[0] == 3:
+            file_h5 = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'eval_grid.arrays.python3.h5')
+        ref_means = {'RMSE': 0.30068346255979556, 'default_sigma_energies': 0.1, 'gap_0_key_0': 2.0}
+        df = pd.read_hdf(file_h5)
+
+        gap = mltools.gap.Gap()
+        self.assertEqual(gap.get_grid_hyparams(df), ref_means)
 
     def test_find_farthest(self):
         # dists_matrix resembels approximatily:
