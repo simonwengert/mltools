@@ -611,7 +611,7 @@ class TestParser(unittest.TestCase):
         gap = mltools.gap.Gap()
         self.assertEqual(gap.calc_average_kernel_soap(desc_A, desc_B, zeta, local_kernel=local_kernel), ref_average_kernel_value)
 
-    def test_calc_kernel_matrix_soap(self):
+    def test_calc_kernel_matrix_soap_serial(self):
         descriptors = [np.loadtxt(os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'descs_0_{}.txt'.format(name))) for name in ['first', 'second', 'third']]
         calc_diag = True
         local_kernel = np.dot
@@ -622,7 +622,20 @@ class TestParser(unittest.TestCase):
                  [0.9961005991483849, 0.9994705736118292, 1.0]])
 
         gap = mltools.gap.Gap()
-        np.testing.assert_array_equal(gap.calc_kernel_matrix_soap(descriptors, calc_diag=calc_diag, local_kernel=local_kernel, zeta=zeta), ref_kernel_matrix)
+        np.testing.assert_array_equal(gap.calc_kernel_matrix_soap(descriptors, ncores=1, calc_diag=calc_diag, local_kernel=local_kernel, zeta=zeta), ref_kernel_matrix)
+
+    def test_calc_kernel_matrix_soap_parallel(self):
+        descriptors = [np.loadtxt(os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'descs_0_{}.txt'.format(name))) for name in ['first', 'second', 'third']]
+        calc_diag = True
+        local_kernel = np.dot
+        zeta = 2
+        ref_kernel_matrix = np.array(                                           #  The three H2O molecules differ only in the lenght of one H-O bond.
+                [[1.0,                0.9983700867106244, 0.9961005991483849],
+                 [0.9983700867106244, 1.0,                0.9994705736118292],
+                 [0.9961005991483849, 0.9994705736118292, 1.0]])
+
+        gap = mltools.gap.Gap()
+        np.testing.assert_array_equal(gap.calc_kernel_matrix_soap(descriptors, ncores=3, calc_diag=calc_diag, local_kernel=local_kernel, zeta=zeta), ref_kernel_matrix)
 
     def test_calc_distance_element(self):
         kernel_matrix = np.array(                                           #  The three H2O molecules differ only in the lenght of one H-O bond.
