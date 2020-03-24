@@ -570,6 +570,25 @@ class TestParser(unittest.TestCase):
         gap = mltools.gap.Gap()
         self.assertEqual(gap.find_farthest(dists_matrix, seeds, number), [0, 4, 2, 3, 1])
 
+    def test_get_subsets_farthest_without_omnipresent(self):
+        data_i = ['1', '2', '3']
+        dist_matrix_i = np.array(
+                [[0.0,                  0.057094891003934174, 0.0883108243831424],
+                 [0.057094891003934174, 0.0,                  0.03254001807531068 ],
+                 [0.0883108243831424,   0.03254001807531068 , 0.0]])
+        data = data_i * 3
+
+        # use distance_matrix_i as building block to create a 3X3 version of it
+        dist_matrix_row = np.concatenate((dist_matrix_i, dist_matrix_i, dist_matrix_i))
+        dist_matrix = np.concatenate((dist_matrix_row, dist_matrix_row, dist_matrix_row), axis=1)
+        num = 3
+
+        gap = mltools.gap.Gap()
+        self.assertEqual(
+                [sorted(subset_i) for subset_i in gap.get_subsets_farthest(data, num, dist_matrix)],
+                [data_i, data_i, data_i],
+                )
+
     def test_get_descriptors_soap(self):
         p_xyz_file = os.path.join(self.cwd, 'tests', 'data', 'xyz', '1_test.xyz')
         set_id = 'other'
