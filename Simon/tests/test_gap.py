@@ -150,6 +150,74 @@ class TestParser(unittest.TestCase):
         for atoms, ref_sigma_energy in zip(gap.atoms_train, ref_sigma_energies):
             self.assertEqual(atoms.info['energy_sigma'], ref_sigma_energy)
 
+    def test_assign_force_atom_sigma_proportion_without_limits_all_zero_sigma(self):
+        p_xyz_file = os.path.join(self.cwd, 'tests', 'data', 'xyz', '0_test.xyz')
+
+        proportion = 0.00
+        arrays_key = 'floats_0'
+        zero_sigma = 1E-5
+        set_id = 'other'
+        ref_force_atom_sigmas = np.array([zero_sigma for _ in range(9)])
+
+        gap = mltools.gap.Gap()
+        gap.read_atoms(p_xyz_file, set_id)
+        gap.assign_force_atom_sigma_proportion(proportion, arrays_key=arrays_key,
+                                               zero_sigma=zero_sigma, set_id=set_id)
+
+        np.testing.assert_array_equal(
+                np.concatenate([atoms.arrays['force_atom_sigma'] for atoms in gap.atoms_other]),
+                ref_force_atom_sigmas
+                )
+
+    def test_assign_force_atom_sigma_proportion_without_limits(self):
+        p_xyz_file = os.path.join(self.cwd, 'tests', 'data', 'xyz', '0_test.xyz')
+
+        proportion = 0.01
+        arrays_key = 'floats_0'
+        zero_sigma = 1E-5
+        set_id = 'other'
+        ref_force_atom_sigmas = np.array([0.03586084, 0.03894868, 0.04888763,
+                                          0.14874475, 0.15019321, 0.15164762,
+                                          0.00866025, 0.01039230, 0.01212436])
+
+        gap = mltools.gap.Gap()
+        gap.read_atoms(p_xyz_file, set_id)
+        gap.assign_force_atom_sigma_proportion(proportion, arrays_key=arrays_key,
+                                               zero_sigma=zero_sigma, set_id=set_id)
+
+        np.testing.assert_array_equal(
+                np.round(
+                    np.concatenate([atoms.arrays['force_atom_sigma'] for atoms in gap.atoms_other]),
+                    8),
+                ref_force_atom_sigmas,
+                )
+
+    def test_assign_force_atom_sigma_proportion_with_limits(self):
+        p_xyz_file = os.path.join(self.cwd, 'tests', 'data', 'xyz', '0_test.xyz')
+
+        proportion = 0.01
+        arrays_key = 'floats_0'
+        zero_sigma = 1E-5
+        set_id = 'other'
+        ll = 0.009
+        ul = 0.150
+        ref_force_atom_sigmas = np.array([0.03586084, 0.03894868, 0.04888763,
+                                          0.14874475,         ul,         ul,
+                                                  ll, 0.01039230, 0.01212436])
+
+        gap = mltools.gap.Gap()
+        gap.read_atoms(p_xyz_file, set_id)
+        gap.assign_force_atom_sigma_proportion(proportion, arrays_key=arrays_key,
+                                               zero_sigma=zero_sigma, set_id=set_id,
+                                               ll=ll, ul=ul)
+
+        np.testing.assert_array_equal(
+                np.round(
+                    np.concatenate([atoms.arrays['force_atom_sigma'] for atoms in gap.atoms_other]),
+                    8),
+                ref_force_atom_sigmas,
+                )
+
     def test_write_gap_fit_parameters(self):
         ref_file = os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'gap_fit.params')
         gap = mltools.gap.Gap()
