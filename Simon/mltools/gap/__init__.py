@@ -1917,7 +1917,7 @@ class Gap(object):
                 dist_matrix_red = np.delete(dist_matrix, all_foreign_samples, axis=0)      # reduce for rows
                 dist_matrix_red = np.delete(dist_matrix_red, all_foreign_samples, axis=1)  # reduced for columns
                 # map samples/indices of full space to reduced space
-                subset_samples_red = np.where(np.isin(red2full_mapper, subset_samples[idx]) is True)[0]
+                subset_samples_red = np.where(np.isin(red2full_mapper, subset_samples[idx]) == True)[0]
 
                 # find farthest in reduced space
                 subset_samples_red = self.find_farthest(dist_matrix_red, subset_samples_red, len(subset_samples_red)+1)
