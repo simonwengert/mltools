@@ -39,3 +39,9 @@ Required for mltools are:
 * scipy   >= 1.2.1
 * pandas  >= 0.23.1
 * sklearn >= 0.19.1
+
+### Authors
+Simon Wengert (s.wengert@tum.de)
+
+### License
+BY-SA
