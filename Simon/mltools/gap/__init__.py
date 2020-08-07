@@ -829,7 +829,7 @@ class Gap(object):
 
         # clean up columns with same value everywhere (e.g. some of the 'default_sigma_*' columns)
         for column in results.columns:
-            if len(np.unique(results[column])) == 1:
+            if len(np.unique(results[column])) == 1 and column not in self._metrics:
                 results = results.drop(columns=column)
 
         if destination:
