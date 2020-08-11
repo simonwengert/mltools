@@ -4,14 +4,14 @@ mltools
 ## Code-Collection for Machine-Learning applications
 
 ### The idea behind mltools
-The mltools-package represents a collection of tools for applications in the field of machine-learning.
+The mltools-package represents a collection of tools for applications in the intersecting field of machine-learning and chemical systems.
 
 ### Contribute
 If you want to contribute to mltools, we propose the same workflow as also suggested for [ase](https://wiki.fysik.dtu.dk/ase/development/contribute.html#).
 In general this means
 
-* Never work in master branch locally or on GitLab.
-* Make a new branch for whatever you are doing. When you are done, push it to your own repository and make a merge request from that branch in your repository to official master.
+* Never work on the master branch locally or on GitHub.
+* Make a new branch for whatever you are doing. When you are done, push it to your own repository and make a merge request from that branch in your repository to the official master.
 
 
 As it comes to commit messages, please follow [numpy's guidelines](http://docs.scipy.org/doc/numpy/dev/gitwash/development_workflow.html)
