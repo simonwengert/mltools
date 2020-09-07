@@ -601,6 +601,16 @@ class TestParser(unittest.TestCase):
         for idx, desc_i in enumerate(descs):
             np.testing.assert_array_equal(desc_i, np.loadtxt(os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'descs_{}.txt'.format(names[idx]))))
 
+    def test_calc_sum_kernel_soap(self):
+        desc_A = np.loadtxt(os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'descs_0_first.txt'))
+        desc_B = np.loadtxt(os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'descs_0_second.txt'))
+        zeta = 2
+        local_kernel = np.dot
+        ref_sum_kernel_value = 4.972904506268907
+
+        gap = mltools.gap.Gap()
+        self.assertEqual(gap.calc_sum_kernel_soap(desc_A, desc_B, zeta, local_kernel=local_kernel), ref_sum_kernel_value)
+
     def test_calc_average_kernel_soap(self):
         desc_A = np.loadtxt(os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'descs_0_first.txt'))
         desc_B = np.loadtxt(os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'descs_0_second.txt'))
@@ -611,31 +621,184 @@ class TestParser(unittest.TestCase):
         gap = mltools.gap.Gap()
         self.assertEqual(gap.calc_average_kernel_soap(desc_A, desc_B, zeta, local_kernel=local_kernel), ref_average_kernel_value)
 
-    def test_calc_kernel_matrix_soap_serial(self):
+    def test_calc_average_kernel_matrix_soap_serial(self):
         descriptors = [np.loadtxt(os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'descs_0_{}.txt'.format(name))) for name in ['first', 'second', 'third']]
-        calc_diag = True
         local_kernel = np.dot
         zeta = 2
+        kernel_type = 'average'
+        normalize = True
         ref_kernel_matrix = np.array(                                           #  The three H2O molecules differ only in the lenght of one H-O bond.
                 [[1.0,                0.9983700867106244, 0.9961005991483849],
                  [0.9983700867106244, 1.0,                0.9994705736118292],
                  [0.9961005991483849, 0.9994705736118292, 1.0]])
 
         gap = mltools.gap.Gap()
-        np.testing.assert_array_equal(gap.calc_kernel_matrix_soap(descriptors, ncores=1, calc_diag=calc_diag, local_kernel=local_kernel, zeta=zeta), ref_kernel_matrix)
+        np.testing.assert_array_almost_equal(gap.calc_kernel_matrix_soap(
+            descriptors,
+            ncores=1,
+            local_kernel=local_kernel,
+            zeta=zeta,
+            kernel_type=kernel_type,
+            normalize=normalize,
+        ), ref_kernel_matrix, decimal=14)
 
-    def test_calc_kernel_matrix_soap_parallel(self):
+    def test_calc_average_kernel_matrix_soap_parallel(self):
         descriptors = [np.loadtxt(os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'descs_0_{}.txt'.format(name))) for name in ['first', 'second', 'third']]
-        calc_diag = True
         local_kernel = np.dot
         zeta = 2
+        kernel_type = 'average'
+        normalize = True
         ref_kernel_matrix = np.array(                                           #  The three H2O molecules differ only in the lenght of one H-O bond.
                 [[1.0,                0.9983700867106244, 0.9961005991483849],
                  [0.9983700867106244, 1.0,                0.9994705736118292],
                  [0.9961005991483849, 0.9994705736118292, 1.0]])
 
         gap = mltools.gap.Gap()
-        np.testing.assert_array_equal(gap.calc_kernel_matrix_soap(descriptors, ncores=3, calc_diag=calc_diag, local_kernel=local_kernel, zeta=zeta), ref_kernel_matrix)
+        np.testing.assert_array_almost_equal(gap.calc_kernel_matrix_soap(
+            descriptors,
+            ncores=3,
+            local_kernel=local_kernel,
+            zeta=zeta,
+            kernel_type=kernel_type,
+            normalize=normalize,
+        ), ref_kernel_matrix, decimal=14)
+
+    def test_calc_average_kernel_matrix_soap_wo_normalization_serial(self):
+        descriptors = [np.loadtxt(os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'descs_0_{}.txt'.format(name))) for name in ['first', 'second', 'third']]
+        local_kernel = np.dot
+        zeta = 2
+        kernel_type = 'average'
+        normalize = False
+        ref_kernel_matrix = np.array(                                           #  The three H2O molecules differ only in the lenght of one H-O bond.
+                [[0.554022243468  , 0.55254494514099, 0.55047058516438],
+                 [0.55254494514099, 0.55287238535074, 0.55175944526838],
+                 [0.55047058516438, 0.55175944526838, 0.55123226485835]])
+
+        gap = mltools.gap.Gap()
+        np.testing.assert_array_almost_equal(gap.calc_kernel_matrix_soap(
+            descriptors,
+            ncores=1,
+            local_kernel=local_kernel,
+            zeta=zeta,
+            kernel_type=kernel_type,
+            normalize=normalize,
+        ), ref_kernel_matrix, decimal=14)
+
+    def test_calc_sum_kernel_matrix_soap_serial(self):
+        descriptors = [np.loadtxt(os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'descs_0_{}.txt'.format(name))) for name in ['first', 'second', 'third']]
+        local_kernel = np.dot
+        zeta = 2
+        kernel_type = 'sum'
+        normalize = True
+        ref_kernel_matrix = np.array(                                           #  The three H2O molecules differ only in the lenght of one H-O bond.
+                [[4.98620019121197, 4.97290450626891, 4.95423526647946],
+                 [4.97290450626891, 4.97585146815667, 4.96583500741544],
+                 [4.95423526647946, 4.96583500741544, 4.96109038372515]]
+        )
+
+        gap = mltools.gap.Gap()
+        np.testing.assert_array_almost_equal(gap.calc_kernel_matrix_soap(
+            descriptors,
+            ncores=1,
+            local_kernel=local_kernel,
+            zeta=zeta,
+            kernel_type=kernel_type,
+            normalize=True
+        ), ref_kernel_matrix, decimal=14)
+
+    def test_calc_sum_kernel_matrix_soap_parallel(self):
+        descriptors = [np.loadtxt(os.path.join(self.cwd, 'tests', 'data', 'cmp_files', 'descs_0_{}.txt'.format(name))) for name in ['first', 'second', 'third']]
+        local_kernel = np.dot
+        zeta = 2
+        kernel_type = 'sum'
+        ref_kernel_matrix = np.array(                                           #  The three H2O molecules differ only in the lenght of one H-O bond.
+                [[4.98620019121197, 4.97290450626891, 4.95423526647946],
+                 [4.97290450626891, 4.97585146815667, 4.96583500741544],
+                 [4.95423526647946, 4.96583500741544, 4.96109038372515]]
+        )
+        gap = mltools.gap.Gap()
+        np.testing.assert_array_almost_equal(gap.calc_kernel_matrix_soap(
+            descriptors,
+            ncores=3,
+            local_kernel=local_kernel,
+            zeta=zeta,
+            kernel_type=kernel_type,
+            ), ref_kernel_matrix, decimal=14)
+
+    def test_normalize_kernel_matrix(self):
+        kernel_matrix = np.array(                                           #  The three H2O molecules differ only in the lenght of one H-O bond.
+                [[0.554022243468  , 0.55254494514099, 0.55047058516438],
+                 [0.55254494514099, 0.55287238535074, 0.55175944526838],
+                 [0.55047058516438, 0.55175944526838, 0.55123226485835]])
+
+        ref_kernel_matrix = np.array(                                           #  The three H2O molecules differ only in the lenght of one H-O bond.
+                [[1.0,                0.9983700867106244, 0.9961005991483849],
+                 [0.9983700867106244, 1.0,                0.9994705736118292],
+                 [0.9961005991483849, 0.9994705736118292, 1.0]])
+
+        gap = mltools.gap.Gap()
+        np.testing.assert_array_almost_equal(gap.normalize_kernel_matrix(kernel_matrix), ref_kernel_matrix, decimal=14)
+
+    def test_calc_soap_kernel_between_sets_average(self):
+        descriptors_train = []
+        descriptors_pred = []
+        for i in range(6):
+            desc = np.loadtxt('{0}/tests/data/cmp_files/desc_dft_c2_as0.3_train_{1}.txt'.format(self.cwd, i))
+            if len(desc.shape) == 1:
+                desc = desc[None, :]
+            descriptors_train.append(desc)
+        for i in range(4):
+            desc = np.loadtxt('{0}/tests/data/cmp_files/desc_dft_c2_as0.3_pred_{1}.txt'.format(self.cwd, i))
+            if len(desc.shape) == 1:
+                desc = desc[None, :]
+            descriptors_pred.append(desc)
+        local_kernel = np.dot
+        zeta = 2
+        kernel_type = 'average'
+        ref_kernel_matrix = np.array(                                           # Molecule id=6-9 from Rad-6.
+                [[0.6543393128105636, 0.7491269181304308, 0.0000000000000000, 0.9485478703425598, 0.7092802159676939, 0.5672102817382827],
+                 [0.6458953827996661, 0.7435867507435746, 0.0000000000000000, 0.968050470672944 , 0.9009025322880789, 0.5276943142997313],
+                 [0.4895023439684069, 0.5688140066567484, 0.5688140066567484, 0.4508041203737383, 0.3435963164666941, 0.8521753892120567],
+                 [0.                , 0.                , 0.                , 0.1013043449332662, 0.603224040651239 , 0.                ],])
+        gap = mltools.gap.Gap()
+        np.testing.assert_array_almost_equal(gap.calc_soap_kernel_between_sets(
+            descriptors_train,
+            descriptors_pred,
+            local_kernel=local_kernel,
+            zeta=zeta,
+            kernel_type=kernel_type
+        ), ref_kernel_matrix, decimal=14)
+
+    def test_calc_soap_kernel_between_sets_sum(self):
+        descriptors_train = []
+        descriptors_pred = []
+        for i in range(6):
+            desc = np.loadtxt('{0}/tests/data/cmp_files/desc_dft_c2_as0.3_train_{1}.txt'.format(self.cwd, i))
+            if len(desc.shape) == 1:
+                desc = desc[None, :]
+            descriptors_train.append(desc)
+        for i in range(4):
+            desc = np.loadtxt('{0}/tests/data/cmp_files/desc_dft_c2_as0.3_pred_{1}.txt'.format(self.cwd, i))
+            if len(desc.shape) == 1:
+                desc = desc[None, :]
+            descriptors_pred.append(desc)
+        local_kernel = np.dot
+        zeta = 2
+        kernel_type = 'sum'
+        ref_kernel_matrix = np.array(                                           # Molecule id=6-9 from Rad-6.
+                [[ 5.396615493564646 ,  3.089184658387952 ,  0.                , 12.370157783741577 ,  4.136408758495498  , 5.236446920093127 ],
+                 [ 2.888675253909442 ,  1.6627930027130415,  0.                ,  6.845923866394167 ,  2.8490593034141725 , 2.6417584456920125],
+                 [ 1.3847329979071508,  0.804547245171326 ,  0.8045472451713261,  2.0164927557500456,  0.6873008888722346 , 2.6984501656218   ],
+                 [ 0.                ,  0.                ,  0.                ,  0.3203727667447258,  0.8530918198463757 , 0.                ],])
+
+        gap = mltools.gap.Gap()
+        np.testing.assert_array_almost_equal(gap.calc_soap_kernel_between_sets(
+            descriptors_train,
+            descriptors_pred,
+            local_kernel=local_kernel,
+            zeta=zeta,
+            kernel_type=kernel_type
+        ), ref_kernel_matrix, decimal=14)
 
     def test_calc_distance_element(self):
         kernel_matrix = np.array(                                           #  The three H2O molecules differ only in the lenght of one H-O bond.
