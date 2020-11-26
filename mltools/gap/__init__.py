@@ -1575,6 +1575,90 @@ class Gap(object):
             samples.append(samples_rem[sample_farthest])
         return samples
 
+    def find_far_apart(self, descs, N, verbose=False):
+        """
+        Find samples far apart from each other based on distance matrices.
+        The implementation separates the input into chunks and compares
+        already selected sampled with the samples in the chunks successively.
+
+        NOTE: As the search for distant samples is restricted to a chunks
+        (and the chunk size depends on the ratio of input samples, i.e.
+        len(descs) and the number of samples to be selected, i.e. N) such
+        a search makes most sense when having much more input samples then
+        samples to be selected from it.
+
+        Parameters:
+        -----------
+        descs : list (N)
+            Descriptors of molecules in terms of numpy arrays.
+        N : int
+            Total number of samples to be selected.
+        verbose : boolean, optional
+            Print the progess.
+
+        Returns:
+        --------
+        samples : list
+            Contains the indices that have been selected
+            as farthest from each other.
+            Note: the first one is always 0.
+        """
+        desc_inds = range(len(descs))
+        samples = [0]  # the first sample selected
+
+        desc_ind_chunks = np.array_split(desc_inds[1:], N-1)  # separation in chunks of similar size
+
+        ## Determining the distances means determinig the normalized kernel-matrix elements beforehand
+        # calculate diagonal elements
+        C_iis = deque()
+        num = len(descs)
+        for idx_i in range(len(descs)):
+            C_ii = self._calc_kernel_soap_wo_C_ii_normalization(
+                descs[idx_i],
+                descs[idx_i],
+                zeta=2.0,
+                local_kernel=np.dot,
+                kernel_type='average',
+            )
+            C_iis.append(C_ii)
+
+            if verbose and (idx_i+1) % 10 == 0 or (idx_i + 1) == num:
+                msg = '{0} Kernel element (diagonal) :     {1}/{2} (for normalization)'.format(
+                    str(datetime.datetime.now()), idx_i+1, num)
+                print(msg)
+
+        samples_visited = 1  # for determining what to append on <samples>
+        for idx in range(N - 1):
+
+            A = len(desc_ind_chunks[idx])  # size of current chunk
+
+            # determine the distance matrix of already selected samples and samples in current chunk
+            dists = np.zeros((len(samples), A))
+            for i, si in enumerate(samples):
+                for j, rj in enumerate(desc_ind_chunks[idx]):
+                    C_ij = self.calc_average_kernel_soap(descs[si], descs[rj], zeta=2.0, C_ii=C_iis[si], C_jj=C_iis[rj], local_kernel=np.dot)
+                    dists[i, j] = self.calc_distance_element(1, 1, C_ij)
+
+            # detect sample in current chunk farthest apart from already selected samples
+            dists_min = np.min(dists, axis=0)  # for each remaining sample find closest distance to already selected
+            sample_farthest = np.argmax(dists_min)  # select the remaining sample farthest to all selected samples
+
+            samples.append(samples_visited + sample_farthest)
+            samples_visited += A
+
+            if verbose and (idx+2) % 10 == 0 or (idx + 2) == N:
+                msg = '{0} Farthest Point :     {1}/{2}'.format(
+                    str(datetime.datetime.now()), idx+2, N)
+                print(msg)
+
+        return samples
+
+    @staticmethod
+    def _get_chunks(lst, size):
+        "Separates a list into sub-lists of given size (possibly with one additional smaller sub-list)"
+        for i in range(0, len(lst), size):
+            yield lst[i:i+size]
+
     def get_descriptors(self, set_id, desc_str):
         """
         Construct the descriptors for a given set of geometries.
