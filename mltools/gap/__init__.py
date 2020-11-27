@@ -1581,7 +1581,7 @@ class Gap(object):
         The implementation separates the input into chunks and compares
         already selected sampled with the samples in the chunks successively.
 
-        NOTE: As the search for distant samples is restricted to a chunks
+        NOTE: As the search for distant samples is restricted to a chunk
         (and the chunk size depends on the ratio of input samples, i.e.
         len(descs) and the number of samples to be selected, i.e. N) such
         a search makes most sense when having much more input samples then
@@ -1601,18 +1601,12 @@ class Gap(object):
         samples : list
             Contains the indices that have been selected
             as farthest from each other.
-            Note: the first one is always 0.
         """
-        desc_inds = range(len(descs))
-        samples = [0]  # the first sample selected
-
-        desc_ind_chunks = np.array_split(desc_inds[1:], N-1)  # separation in chunks of similar size
-
         ## Determining the distances means determinig the normalized kernel-matrix elements beforehand
-        # calculate diagonal elements
+        # calculate diagonal elements (required for normalization)
         C_iis = deque()
-        num = len(descs)
-        for idx_i in range(len(descs)):
+        num = len(descs)  # for printing progress
+        for idx_i in range(num):
             C_ii = self._calc_kernel_soap_wo_C_ii_normalization(
                 descs[idx_i],
                 descs[idx_i],
@@ -1627,7 +1621,14 @@ class Gap(object):
                     str(datetime.datetime.now()), idx_i+1, num)
                 print(msg)
 
-        samples_visited = 1  # for determining what to append on <samples>
+        # We will refer to the entries of the input descs in terms of their index.
+        # And: For a random composition of chunks (vida infra), we will shuffle the ordering
+        desc_inds = np.arange(len(descs))
+        np.random.shuffle(desc_inds)
+
+        samples = [desc_inds[0]]  # the first sample selected
+        desc_ind_chunks = np.array_split(desc_inds[1:], N-1)  # separation in (N-1) chunks of similar size
+
         for idx in range(N - 1):
 
             A = len(desc_ind_chunks[idx])  # size of current chunk
@@ -1641,17 +1642,18 @@ class Gap(object):
 
             # detect sample in current chunk farthest apart from already selected samples
             dists_min = np.min(dists, axis=0)  # for each remaining sample find closest distance to already selected
-            sample_farthest = np.argmax(dists_min)  # select the remaining sample farthest to all selected samples
+            # select the remaining sample farthest to all selected samples
+            chunk_idx_farthest = np.argmax(dists_min)
+            desc_idx_farthest = desc_ind_chunks[idx][chunk_idx_farthest]
 
-            samples.append(samples_visited + sample_farthest)
-            samples_visited += A
+            samples.append(desc_idx_farthest)
 
             if verbose and (idx+2) % 10 == 0 or (idx + 2) == N:
                 msg = '{0} Farthest Point :     {1}/{2}'.format(
                     str(datetime.datetime.now()), idx+2, N)
                 print(msg)
 
-        return samples
+        return sorted(samples)
 
     @staticmethod
     def _get_chunks(lst, size):
